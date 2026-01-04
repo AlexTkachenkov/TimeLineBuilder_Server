@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hierarchical Timeline Builder</title>
+    <title>Hierarchical Timeline Builder with Gemini AI</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -31,7 +31,46 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useRef, useEffect } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { Plus, Trash2, ChevronLeft, ChevronRight, Calendar, Download, Printer, ArrowLeftRight, ArrowUpDown, FileJson, Upload, Indent, Outdent, Globe, AlignCenter, AlignLeft, AlignRight, Sun, Moon, X, ArrowRightLeft } from 'lucide-react';
+        import { Plus, Trash2, ChevronLeft, ChevronRight, Calendar, Download, Printer, ArrowLeftRight, ArrowUpDown, FileJson, Upload, Indent, Outdent, Globe, AlignCenter, AlignLeft, AlignRight, Sun, Moon, Sparkles, Wand2, Loader2, X, ArrowRightLeft } from 'lucide-react';
+
+        // --- GEMINI API HELPERS ---
+        const apiKey = ""; // System provides this at runtime
+
+        const callGemini = async (prompt, isJson = false) => {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: isJson ? "application/json" : "text/plain"
+                }
+            };
+
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            
+            for (let i = 0; i < delays.length; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (!text) throw new Error("No text generated");
+                    
+                    return isJson ? JSON.parse(text) : text;
+                    
+                } catch (error) {
+                    if (i === delays.length - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        };
 
         // --- Translations ---
         const TRANSLATIONS = {
@@ -55,6 +94,11 @@
             descNodePlaceholder: "Description...",
             subTitleNodePlaceholder: "Sub-event Title...",
             subtitleDefault: "Use Ctrl+B/I/U for formatting.<br>©alex tkachenkov",
+            aiExpand: "AI: Expand Sub-events",
+            aiEnhance: "AI: Enhance Text",
+            aiGenerate: "AI: Generate Timeline",
+            aiPromptPlaceholder: "e.g., History of the Internet...",
+            generating: "Generating...",
             toggleDate: "Toggle Date",
             mirrorSides: "Mirror All Nodes",
             reverseTimeline: "Reverse Timeline Direction"
@@ -79,6 +123,11 @@
             descNodePlaceholder: "תיאור...",
             subTitleNodePlaceholder: "כותרת תת-אירוע...",
             subtitleDefault: "השתמשו ב-Ctrl+B/I/U לעיצוב.<br>©אלכס טקצ'נקוב",
+            aiExpand: "AI: הרחב אירועים",
+            aiEnhance: "AI: שפר טקסט",
+            aiGenerate: "AI: צור ציר זמן",
+            aiPromptPlaceholder: "לדוגמה: ההיסטוריה של האינטרנט...",
+            generating: "יוצר...",
             toggleDate: "הצג/הסתר תאריך",
             mirrorSides: "הפוך צדדים",
             reverseTimeline: "הפוך כיוון ציר זמן"
@@ -127,7 +176,7 @@
         };
 
         // --- Inline Controls Component ---
-        const NodeControls = ({ node, index, isSub, totalNodes, onIndent, onOutdent, onToggleSide, onMove, onDelete, onToggleDate, t }) => (
+        const NodeControls = ({ node, index, isSub, totalNodes, onIndent, onOutdent, onToggleSide, onMove, onDelete, onAiExpand, onAiEnhance, onToggleDate, isLoadingExpand, isLoadingEnhance, enableAi, t }) => (
             <div className="flex flex-row items-center gap-1">
                {/* Date Toggle */}
                <button onClick={() => onToggleDate(node.id)} className={`p-1.5 rounded transition-colors ${node.date !== null ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30' : 'text-slate-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400'}`} title={t.toggleDate}>
@@ -152,6 +201,33 @@
                   <ArrowUpDown size={14} />
                </button>
 
+               {/* AI Controls */}
+               {enableAi && (
+                   <>
+                       <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
+                       
+                       <button 
+                         onClick={() => onAiEnhance(node)} 
+                         disabled={isLoadingEnhance}
+                         className={`p-1.5 text-purple-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded ${isLoadingEnhance ? 'animate-pulse cursor-wait' : ''}`} 
+                         title={t.aiEnhance}
+                       >
+                          {isLoadingEnhance ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                       </button>
+
+                       {!isSub && (
+                           <button 
+                             onClick={() => onAiExpand(node)} 
+                             disabled={isLoadingExpand}
+                             className={`p-1.5 text-purple-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded ${isLoadingExpand ? 'animate-pulse cursor-wait' : ''}`} 
+                             title={t.aiExpand}
+                           >
+                              {isLoadingExpand ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+                           </button>
+                       )}
+                   </>
+               )}
+
                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
 
                {/* Movement Controls (Left/Right) */}
@@ -167,7 +243,7 @@
             </div>
         );
 
-        const SubNodeRenderer = ({ node, index, totalNodes, onUpdate, onDelete, onToggleDate, onIndent, onOutdent, onToggleSide, onMove, t }) => {
+        const SubNodeRenderer = ({ node, index, totalNodes, onUpdate, onDelete, onToggleDate, onIndent, onOutdent, onToggleSide, onMove, onAiEnhance, isLoadingEnhance, enableAi, t }) => {
             return (
               <div className="relative p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 first:border-t-0 group/sub hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors duration-300 ease-in-out">
                  <div className="absolute right-0 top-0 bottom-0 w-[4px] bg-slate-200 dark:bg-slate-700 group-hover/sub:bg-blue-300 dark:group-hover/sub:bg-blue-600 transition-colors duration-300 ease-in-out"></div>
@@ -214,7 +290,12 @@
                         onToggleSide={onToggleSide}
                         onMove={onMove}
                         onDelete={onDelete}
+                        onAiExpand={()=>{}}
+                        onAiEnhance={onAiEnhance}
                         onToggleDate={onToggleDate}
+                        isLoadingExpand={false}
+                        isLoadingEnhance={isLoadingEnhance}
+                        enableAi={enableAi}
                         t={t}
                      />
                  </div>
@@ -223,6 +304,7 @@
         };
 
         const TimelineApp = () => {
+          const ENABLE_AI = true; 
           const fileInputRef = useRef(null);
           const containerRef = useRef(null);
           const exportContainerRef = useRef(null);
@@ -231,6 +313,14 @@
           const [uiLanguage, setUiLanguage] = useState('en');
           const [isReversed, setIsReversed] = useState(false); // Controls LTR/RTL flow
           
+          // AI Loading States
+          const [aiLoading, setAiLoading] = useState({});
+          
+          // Modal for Generate Timeline
+          const [showGenerateModal, setShowGenerateModal] = useState(false);
+          const [generatePrompt, setGeneratePrompt] = useState("");
+          const [isGeneratingTimeline, setIsGeneratingTimeline] = useState(false);
+
           const [darkMode, setDarkMode] = useState(() => {
               if (typeof window !== 'undefined' && window.matchMedia) {
                   return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -390,6 +480,91 @@
                  side: n.side === 'left' ? 'right' : 'left'
              }));
              setNodes(newNodes);
+          };
+
+          // --- AI HANDLERS ---
+          const handleAiGenerateTimeline = async () => {
+              if (!ENABLE_AI) return;
+              if (!generatePrompt.trim()) return;
+              setIsGeneratingTimeline(true);
+              try {
+                  const prompt = `Generate a timeline for the topic: "${generatePrompt}". Return a JSON array of 5 to 8 events. Each object must have: "title" (string), "date" (string, year or period), "content" (string, short description), "side" (string, "left" or "right" alternating), "isSub" (boolean, false for main events). Example: [{"title":"X","date":"1900","content":"Y","side":"left","isSub":false}]`;
+                  
+                  const result = await callGemini(prompt, true);
+                  
+                  if (Array.isArray(result)) {
+                      const newNodes = result.map(n => ({
+                          id: generateId(),
+                          type: 'event',
+                          side: n.side || 'left',
+                          title: n.title,
+                          date: n.date,
+                          content: n.content,
+                          isSub: n.isSub || false
+                      }));
+                      let nextSide = 'right';
+                      newNodes.forEach(n => {
+                          if (!n.isSub) {
+                              n.side = nextSide;
+                              nextSide = nextSide === 'right' ? 'left' : 'right';
+                          }
+                      });
+                      setNodes(newNodes);
+                      setAppTitle(generatePrompt); 
+                      setShowGenerateModal(false);
+                      setGeneratePrompt("");
+                  }
+              } catch (error) {
+                  alert("AI Error: " + error.message);
+              } finally {
+                  setIsGeneratingTimeline(false);
+              }
+          };
+
+          const handleAiExpand = async (node) => {
+              if (!ENABLE_AI) return;
+              setAiLoading(prev => ({ ...prev, [node.id]: 'expand' }));
+              try {
+                  const prompt = `For the historical event "${node.title}" which happened around "${node.date}", generate 3 interesting sub-events or details. Return a JSON array. Each object: "title", "date", "content". Keep descriptions under 20 words.`;
+                  const result = await callGemini(prompt, true);
+                  
+                  if (Array.isArray(result)) {
+                      const newSubNodes = result.map(n => ({
+                          id: generateId(),
+                          type: 'event',
+                          side: node.side, 
+                          title: n.title,
+                          date: n.date,
+                          content: n.content,
+                          isSub: true
+                      }));
+                      const index = nodes.findIndex(n => n.id === node.id);
+                      if (index !== -1) {
+                          const newNodes = [...nodes];
+                          newNodes.splice(index + 1, 0, ...newSubNodes);
+                          setNodes(newNodes);
+                      }
+                  }
+              } catch (e) {
+                  console.error(e);
+                  alert("Could not expand event.");
+              } finally {
+                  setAiLoading(prev => { const n = {...prev}; delete n[node.id]; return n; });
+              }
+          };
+
+          const handleAiEnhance = async (node) => {
+              if (!ENABLE_AI) return;
+              setAiLoading(prev => ({ ...prev, [node.id]: 'enhance' }));
+              try {
+                  const prompt = `Rewrite this timeline event description to be more engaging, concise, and historical (approx 30 words): "${node.content || node.title}".`;
+                  const text = await callGemini(prompt, false);
+                  updateNode(node.id, 'content', text);
+              } catch (e) {
+                  alert("Could not enhance text.");
+              } finally {
+                  setAiLoading(prev => { const n = {...prev}; delete n[node.id]; return n; });
+              }
           };
 
           // --- MOUSE TRACKING ---
@@ -576,6 +751,39 @@
                 }
               `}</style>
 
+              {/* GENERATE MODAL */}
+              {showGenerateModal && (
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700">
+                          <div className="flex justify-between items-center mb-4">
+                              <h3 className="text-xl font-bold flex items-center gap-2">
+                                  <Sparkles className="text-purple-500" /> 
+                                  {t.aiGenerate}
+                              </h3>
+                              <button onClick={() => setShowGenerateModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X size={20}/></button>
+                          </div>
+                          <div className="space-y-4">
+                              <p className="text-slate-600 dark:text-slate-300 text-sm">Enter a topic, and Gemini will create a structured timeline for you.</p>
+                              <input 
+                                type="text" 
+                                value={generatePrompt}
+                                onChange={(e) => setGeneratePrompt(e.target.value)}
+                                placeholder={t.aiPromptPlaceholder}
+                                className="w-full p-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                                onKeyDown={(e) => e.key === 'Enter' && handleAiGenerateTimeline()}
+                              />
+                              <button 
+                                onClick={handleAiGenerateTimeline}
+                                disabled={isGeneratingTimeline || !generatePrompt.trim()}
+                                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                              >
+                                  {isGeneratingTimeline ? <><Loader2 className="animate-spin"/> {t.generating}</> : <><Wand2 size={18} /> {t.aiGenerate}</>}
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               {/* Header Controls - Forced LTR so positions don't swap */}
               <div className="w-full max-w-[95%] mx-auto mb-6 flex flex-wrap items-center justify-between gap-4 no-print relative z-50" dir="ltr">
                    {/* Left Side: Language, Mode, Theme */}
@@ -605,6 +813,15 @@
 
                    {/* Center/Right: Actions */}
                    <div className="flex flex-wrap items-center gap-2">
+                        {ENABLE_AI && (
+                            <button 
+                                onClick={() => setShowGenerateModal(true)}
+                                className="flex items-center gap-1.5 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium shadow-md hover:shadow-lg"
+                            >
+                                <Sparkles size={16} />
+                                <span className="hidden sm:inline">AI Generate</span>
+                            </button>
+                        )}
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{display: 'none'}} accept=".json" />
                         
                         <button onClick={handleSaveTemplate} className="btn-framed group" title={t.save}>
@@ -665,7 +882,7 @@
                     onMouseLeave={handleMouseLeave}
                 > 
                   {/* Central Line */}
-                  <div className="absolute bg-slate-200 dark:bg-slate-700 z-0 pointer-events-none top-1/2 left-0 right-0 h-1 mt-5"></div>
+                  <div className="absolute bg-slate-200 dark:bg-slate-700 z-0 pointer-events-none top-1/2 left-0 right-0 h-1"></div>
                   
                   {/* Hover Add Button */}
                   {hoverPos !== null && insertIndex !== null && (
@@ -692,7 +909,7 @@
                       <div key={mainNode.id} className="relative group/wrapper print-break-inside-avoid flex-shrink-0 flex flex-col justify-center min-w-[320px] h-auto" data-group-index={groupIndex} data-start-index={index} data-last-index={lastIndex}>
                         
                         {/* Dot */}
-                        <div className="timeline-dot absolute rounded-full z-20 shadow-sm transition-all w-4 h-4 bg-white dark:bg-slate-800 border-4 border-blue-500 group-hover/wrapper:scale-125 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-5"></div>
+                        <div className="timeline-dot absolute rounded-full z-20 shadow-sm transition-all w-4 h-4 bg-white dark:bg-slate-800 border-4 border-blue-500 group-hover/wrapper:scale-125 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
 
                         {/* HORIZONTAL LAYOUT */}
                         <div className="flex flex-col h-full w-full">
@@ -705,14 +922,14 @@
                                         nodes={nodes} 
                                         t={t} 
                                         index={index}
-                                        actions={{updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, toggleDate, currentDir}}
+                                        actions={{updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, handleAiExpand, handleAiEnhance, toggleDate, aiLoading, ENABLE_AI, currentDir}}
                                         isTopSection={true}
                                     />
                                 )}
                             </div>
                             
                             {/* Spacer for line */}
-                            <div className="h-10"></div>
+                            <div className="h-20"></div>
 
                             {/* Bottom Section (Right Side) */}
                             <div className={`flex-1 flex flex-col justify-start pt-8 px-4 transition-all duration-300 ${side === 'right' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -723,7 +940,7 @@
                                         nodes={nodes} 
                                         t={t} 
                                         index={index}
-                                        actions={{updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, toggleDate, currentDir}}
+                                        actions={{updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, handleAiExpand, handleAiEnhance, toggleDate, aiLoading, ENABLE_AI, currentDir}}
                                         isTopSection={false}
                                     />
                                 )}
@@ -740,7 +957,7 @@
 
         // Extracted NodeCard
         const NodeCard = ({ mainNode, children, nodes, t, index, actions, isTopSection }) => {
-            const { updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, toggleDate, currentDir } = actions;
+            const { updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, handleAiExpand, handleAiEnhance, toggleDate, aiLoading, ENABLE_AI, currentDir } = actions;
             
             // "Butterfly" layout for Horizontal Top Nodes
             const reverseContent = isTopSection;
@@ -774,7 +991,12 @@
                                 onToggleSide={toggleNodeSide}
                                 onMove={moveNode}
                                 onDelete={deleteNode}
+                                onAiExpand={handleAiExpand}
+                                onAiEnhance={handleAiEnhance}
                                 onToggleDate={toggleDate}
+                                isLoadingExpand={aiLoading[mainNode.id] === 'expand'}
+                                isLoadingEnhance={aiLoading[mainNode.id] === 'enhance'}
+                                enableAi={ENABLE_AI}
                                 t={t}
                             />
                         </div>
@@ -796,6 +1018,9 @@
                                 onOutdent={outdentNode}
                                 onToggleSide={toggleNodeSide}
                                 onMove={moveNode}
+                                onAiEnhance={handleAiEnhance}
+                                isLoadingEnhance={aiLoading[child.id] === 'enhance'}
+                                enableAi={ENABLE_AI}
                                 t={t}
                                 />
                             ))}
