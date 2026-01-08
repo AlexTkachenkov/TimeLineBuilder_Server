@@ -24,6 +24,34 @@
       }
     }
     </script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white; }
+            .print-break-inside-avoid { break-inside: avoid; }
+        }
+        .btn-framed { 
+            @apply flex flex-col items-center justify-center w-24 md:w-32 h-14 md:h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md active:scale-95 cursor-pointer; 
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 transition-colors duration-300 ease-in-out">
     <div id="root"></div>
@@ -31,7 +59,7 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useRef, useEffect } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { Plus, Trash2, ChevronDown, ChevronUp, Calendar, Download, Printer, ArrowLeftRight, FileJson, Upload, Indent, Outdent, Globe, AlignCenter, AlignLeft, AlignRight, Sun, Moon, RefreshCcw, X } from 'lucide-react';
+        import { Plus, Trash2, ChevronDown, ChevronUp, Calendar, Download, Printer, ArrowLeftRight, FileJson, Upload, Indent, Outdent, Globe, AlignCenter, AlignLeft, AlignRight, Sun, Moon, RefreshCcw, X, Info } from 'lucide-react';
 
         // --- Translations ---
         const TRANSLATIONS = {
@@ -62,7 +90,11 @@
             alignSide: "Align Start",
             autoAlign: "Auto Align Sides",
             subtitleDefault: "Use Ctrl+B/I/U for formatting.<br>©alex tkachenkov",
-            toggleDate: "Toggle Date"
+            toggleDate: "Toggle Date",
+            loading: "Loading libraries...",
+            invalidFormat: "Invalid file format",
+            parseError: "Error parsing file",
+            exportSuccess: "Export initiated"
           },
           he: {
             save: "שמור תבנית",
@@ -91,8 +123,31 @@
             alignSide: "יישור להתחלה",
             autoAlign: "סידור אוטומטי לצדדים",
             subtitleDefault: "השתמשו ב-Ctrl+B/I/U לעיצוב.<br>©אלכס טקצ'נקוב",
-            toggleDate: "הצג/הסתר תאריך"
+            toggleDate: "הצג/הסתר תאריך",
+            loading: "טוען ספריות...",
+            invalidFormat: "פורמט קובץ לא תקין",
+            parseError: "שגיאה בטעינת הקובץ",
+            exportSuccess: "ייצוא התחיל"
           }
+        };
+
+        // --- Toast Component ---
+        const Toast = ({ message, onClose }) => {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 3000);
+                return () => clearTimeout(timer);
+            }, [onClose]);
+
+            if (!message) return null;
+
+            return (
+                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] animate-fade-in-up">
+                    <div className="bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 text-sm font-medium">
+                        <Info size={16} />
+                        {message}
+                    </div>
+                </div>
+            );
         };
 
         // --- Rich Text Editor Component ---
@@ -236,6 +291,11 @@
           
           // --- Global State ---
           const [uiLanguage, setUiLanguage] = useState('en');
+          const [toastMessage, setToastMessage] = useState(null);
+
+          const showToast = (msg) => {
+              setToastMessage(msg);
+          };
 
           const [darkMode, setDarkMode] = useState(() => {
               if (typeof window !== 'undefined' && window.matchMedia) {
@@ -486,8 +546,9 @@
                     link.download = 'timeline.png';
                     link.href = canvas.toDataURL();
                     link.click();
+                    showToast(t.exportSuccess);
                 } finally { element.style.backgroundColor = ''; element.style.padding = originalPadding; }
-            } else { alert("Loading libraries..."); }
+            } else { showToast(t.loading); }
           };
 
           const handleExportPDF = async () => {
@@ -522,14 +583,14 @@
                          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
                          pdf.save('timeline.pdf');
                     }
+                    showToast(t.exportSuccess);
                 } finally { element.style.backgroundColor = originalBg; element.style.padding = originalPadding; }
-              } else { alert("PDF library loading..."); }
+              } else { showToast(t.loading); }
           };
 
           const handleSaveTemplate = () => {
               const cleanNodes = nodes.map(node => ({ id: node.id, type: node.type || 'event', side: node.side, title: node.title, date: node.date, content: node.content, comments: node.comments || [], isSub: node.isSub }));
               
-              // Prepare data object with title, subtitle, and nodes
               const templateData = {
                   title: appTitle,
                   subtitle: appSubtitle,
@@ -564,9 +625,9 @@
                           setNodes(parsed);
                       }
                       else { 
-                          alert("Invalid file format"); 
+                          showToast(t.invalidFormat); 
                       }
-                  } catch (err) { alert("Error parsing file"); }
+                  } catch (err) { showToast(t.parseError); }
               };
               e.target.value = null; 
           };
@@ -599,14 +660,8 @@
 
           return (
             <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-2 md:p-8 font-sans transition-colors duration-300 ease-in-out" dir={currentDir}>
-              <style>{`
-                @media print {
-                  .no-print { display: none !important; }
-                  body { background-color: white; }
-                  .print-break-inside-avoid { break-inside: avoid; }
-                }
-                .btn-framed { @apply flex flex-col items-center justify-center w-24 md:w-32 h-14 md:h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md active:scale-95; }
-              `}</style>
+              
+              <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
 
               {/* Top Bar */}
               <div dir="ltr" className="absolute top-2 left-2 md:top-4 md:left-4 z-50 no-print flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-1">
