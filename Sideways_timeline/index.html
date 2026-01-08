@@ -31,7 +31,7 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useRef, useEffect } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { Plus, Trash2, ChevronLeft, ChevronRight, Calendar, Download, Printer, ArrowLeftRight, ArrowUpDown, FileJson, Upload, Indent, Outdent, Globe, AlignCenter, AlignLeft, AlignRight, Sun, Moon, X, ArrowRightLeft } from 'lucide-react';
+        import { Plus, Trash2, ChevronLeft, ChevronRight, Calendar, Download, Printer, ArrowLeftRight, ArrowUpDown, FileJson, Upload, Indent, Outdent, Globe, AlignCenter, AlignLeft, AlignRight, Sun, Moon, X } from 'lucide-react';
 
         // --- Translations ---
         const TRANSLATIONS = {
@@ -46,7 +46,6 @@
             defaultTitle: "Dynamic Timeline Builder",
             promote: "Promote",
             demote: "Demote",
-            switchSide: "Switch Side (Top/Bottom)",
             moveLeft: "Move Left",
             moveRight: "Move Right",
             delete: "Delete",
@@ -56,7 +55,6 @@
             subTitleNodePlaceholder: "Sub-event Title...",
             subtitleDefault: "Use Ctrl+B/I/U for formatting.<br>©alex tkachenkov",
             toggleDate: "Toggle Date",
-            mirrorSides: "Mirror All Nodes",
             reverseTimeline: "Reverse Timeline Direction"
           },
           he: {
@@ -70,7 +68,6 @@
             defaultTitle: "בניית ציר זמן דינמי",
             promote: "הפוך לראשי",
             demote: "הפוך למשני",
-            switchSide: "החלף צד (למעלה/למטה)",
             moveLeft: "הזז ימינה",
             moveRight: "הזז שמאלה",
             delete: "מחק",
@@ -80,7 +77,6 @@
             subTitleNodePlaceholder: "כותרת תת-אירוע...",
             subtitleDefault: "השתמשו ב-Ctrl+B/I/U לעיצוב.<br>©אלכס טקצ'נקוב",
             toggleDate: "הצג/הסתר תאריך",
-            mirrorSides: "הפוך צדדים",
             reverseTimeline: "הפוך כיוון ציר זמן"
           }
         };
@@ -127,8 +123,8 @@
         };
 
         // --- Inline Controls Component ---
-        const NodeControls = ({ node, index, isSub, totalNodes, onIndent, onOutdent, onToggleSide, onMove, onDelete, onToggleDate, t }) => (
-            <div className="flex flex-row items-center gap-1">
+        const NodeControls = ({ node, index, isSub, totalNodes, onIndent, onOutdent, onMove, onDelete, onToggleDate, t }) => (
+            <div className="flex flex-row items-center gap-1 flex-wrap">
                {/* Date Toggle */}
                <button onClick={() => onToggleDate(node.id)} className={`p-1.5 rounded transition-colors ${node.date !== null ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30' : 'text-slate-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400'}`} title={t.toggleDate}>
                   <Calendar size={14} />
@@ -147,11 +143,6 @@
                    </button>
                )}
                
-               {/* Switch Side (Up/Down for Horizontal) */}
-               <button onClick={() => onToggleSide(node.id)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded" title={t.switchSide}>
-                  <ArrowUpDown size={14} />
-               </button>
-
                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
 
                {/* Movement Controls (Left/Right) */}
@@ -167,7 +158,7 @@
             </div>
         );
 
-        const SubNodeRenderer = ({ node, index, totalNodes, onUpdate, onDelete, onToggleDate, onIndent, onOutdent, onToggleSide, onMove, t }) => {
+        const SubNodeRenderer = ({ node, index, totalNodes, onUpdate, onDelete, onToggleDate, onIndent, onOutdent, onMove, t }) => {
             return (
               <div className="relative p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 first:border-t-0 group/sub hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors duration-300 ease-in-out">
                  <div className="absolute right-0 top-0 bottom-0 w-[4px] bg-slate-200 dark:bg-slate-700 group-hover/sub:bg-blue-300 dark:group-hover/sub:bg-blue-600 transition-colors duration-300 ease-in-out"></div>
@@ -203,7 +194,7 @@
                      </div>
                  </div>
                  
-                 <div className="mt-3 pt-2 flex justify-start items-center gap-2 no-print opacity-0 group-hover/sub:opacity-100 transition-opacity">
+                 <div className="mt-3 pt-2 flex justify-start items-center gap-2 no-print opacity-100 md:opacity-0 group-hover/sub:opacity-100 transition-opacity">
                      <NodeControls 
                         node={node} 
                         index={index} 
@@ -211,7 +202,6 @@
                         totalNodes={totalNodes}
                         onIndent={onIndent}
                         onOutdent={onOutdent}
-                        onToggleSide={onToggleSide}
                         onMove={onMove}
                         onDelete={onDelete}
                         onToggleDate={onToggleDate}
@@ -248,8 +238,6 @@
           const t = TRANSLATIONS[uiLanguage];
           const [appTitle, setAppTitle] = useState("Dynamic Timeline Builder"); 
           const [appSubtitle, setAppSubtitle] = useState("Use Ctrl+B/I/U for formatting.<br>©alex tkachenkov");
-          const [hoverPos, setHoverPos] = useState(null); 
-          const [insertIndex, setInsertIndex] = useState(null);
 
           useEffect(() => {
              if (appSubtitle === TRANSLATIONS['en'].subtitleDefault || appSubtitle === TRANSLATIONS['he'].subtitleDefault) {
@@ -272,14 +260,14 @@
                 let parsed = JSON.parse(saved);
                 return parsed.map((n, i) => ({
                      ...n, 
-                     side: n.side || (i % 2 === 0 ? 'right' : 'left'),
+                     side: 'right', // Force right/down side for data consistency
                      type: 'event',
                      isSub: n.isSub || false
                 }));
               }
             } catch (e) { console.error(e); }
             return [
-              { "id": "root-mech", "type": "event", "side": "left", "title": "Mechanical Roots", "date": "19th Century", "content": "Before electricity, computer concepts were born as mechanical machines.", "isSub": false },
+              { "id": "root-mech", "type": "event", "side": "right", "title": "Mechanical Roots", "date": "19th Century", "content": "Before electricity, computer concepts were born as mechanical machines.", "isSub": false },
               { "id": "init-2", "type": "event", "side": "right", "title": "Charles Babbage", "date": "1837", "content": "Babbage designed a mechanical machine with all modern computer elements.", "isSub": true },
             ];
           });
@@ -323,14 +311,10 @@
           const renderGroups = getRenderGroups();
 
           const addNode = (index) => {
-            const prevNode = index > 0 ? nodes[index - 1] : null;
-            const prevSide = prevNode ? prevNode.side : 'left';
-            const newSide = prevSide === 'right' ? 'left' : 'right';
-            const newNode = { id: generateId(), type: 'event', side: newSide, title: 'New Event', date: '', content: '', isSub: false };
+            const newNode = { id: generateId(), type: 'event', side: 'right', title: 'New Event', date: '', content: '', isSub: false };
             const newNodes = [...nodes];
             newNodes.splice(index, 0, newNode);
             setNodes(newNodes);
-            setHoverPos(null);
           };
 
           const deleteNode = (id) => {
@@ -365,18 +349,17 @@
               setNodes(newNodes);
           };
 
+          // Removed toggleNodeSide as layout is now single-sided
           const toggleNodeSide = (id) => {
-              setNodes(nodes.map(n => n.id === id ? { ...n, side: n.side === 'right' ? 'left' : 'right' } : n));
+             // No-op or implementation kept but unused in UI to prevent crashes
           };
 
           const toggleDate = (id) => {
             setNodes(nodes.map(n => {
                 if (n.id === id) {
                     if (n.date === null) {
-                         // Restore date: use savedDate if available, else empty string
                          return { ...n, date: n.savedDate !== undefined ? n.savedDate : '' };
                     } else {
-                         // Hide date: save current date to savedDate, set date to null
                          return { ...n, date: null, savedDate: n.date };
                     }
                 }
@@ -384,47 +367,7 @@
             }));
           };
           
-          const mirrorSides = () => {
-             const newNodes = nodes.map(n => ({
-                 ...n,
-                 side: n.side === 'left' ? 'right' : 'left'
-             }));
-             setNodes(newNodes);
-          };
-
-          // --- MOUSE TRACKING ---
-          const handleMouseMove = (e) => {
-            if (!containerRef.current) return;
-            const containerRect = containerRef.current.getBoundingClientRect();
-            
-            // HORIZONTAL LOGIC ONLY
-            const centerY = containerRect.top + (containerRect.height / 2);
-            const mouseY = e.clientY;
-            const distance = Math.abs(mouseY - centerY);
-            
-            if (distance > 100) { setHoverPos(null); return; }
-            
-            const mouseX = e.clientX;
-            const relativeX = (mouseX - containerRect.left) + containerRef.current.scrollLeft;
-            setHoverPos(relativeX);
-
-            const groupElements = document.querySelectorAll('[data-group-index]');
-            let calculatedIndex = nodes.length; 
-            for (let i = 0; i < groupElements.length; i++) {
-                const el = groupElements[i];
-                const rect = el.getBoundingClientRect();
-                const splitPoint = rect.left + (rect.width / 2);
-                
-                if (mouseX < splitPoint) {
-                        const startIndex = parseInt(el.getAttribute('data-start-index'));
-                        calculatedIndex = startIndex;
-                        break;
-                }
-            }
-            setInsertIndex(calculatedIndex);
-          };
-
-          const handleMouseLeave = () => { setHoverPos(null); };
+          // Removed mirrorSides button action
 
           // --- EXPORT ---
           const handleExportImage = async () => {
@@ -552,14 +495,18 @@
           const currentDir = uiLanguage === 'he' ? 'rtl' : 'ltr';
 
           return (
-            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-4 font-sans transition-colors duration-300 ease-in-out flex flex-col" dir={currentDir}>
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-2 md:p-4 font-sans transition-colors duration-300 ease-in-out flex flex-col" dir={currentDir}>
               <style>{`
                 @media print {
                   .no-print { display: none !important; }
                   body { background-color: white; }
                   .print-break-inside-avoid { break-inside: avoid; }
                 }
-                .btn-framed { @apply flex flex-col items-center justify-center w-28 h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md active:scale-95; }
+                .btn-framed { 
+                    @apply flex flex-col items-center justify-center 
+                    w-12 h-12 md:w-28 md:h-16 
+                    bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md active:scale-95; 
+                }
                 /* Custom scrollbar for horizontal timeline */
                 .horizontal-scroll::-webkit-scrollbar {
                     height: 8px;
@@ -576,30 +523,24 @@
                 }
               `}</style>
 
-              {/* Header Controls - Forced LTR so positions don't swap */}
-              <div className="w-full max-w-[95%] mx-auto mb-6 flex flex-wrap items-center justify-between gap-4 no-print relative z-50" dir="ltr">
+              {/* Header Controls */}
+              <div className="w-full max-w-[95%] mx-auto mb-4 md:mb-6 flex flex-wrap items-center justify-between gap-4 no-print relative z-50" dir="ltr">
                    {/* Left Side: Language, Mode, Theme */}
-                   <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <Globe size={16} className="text-slate-400" />
+                   <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm overflow-x-auto max-w-full">
+                      <Globe size={16} className="text-slate-400 shrink-0" />
                       <select value={uiLanguage} onChange={(e) => setUiLanguage(e.target.value)} className="bg-transparent border-none outline-none text-sm text-slate-600 dark:text-slate-300 cursor-pointer bg-white dark:bg-slate-800">
                           <option value="en">English</option>
                           <option value="he">עברית</option>
                       </select>
-                      <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                      <button onClick={() => setDarkMode(!darkMode)} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md transition-colors">
+                      <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0"></div>
+                      <button onClick={() => setDarkMode(!darkMode)} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md transition-colors shrink-0">
                         {darkMode ? <Moon size={16} /> : <Sun size={16} />}
                       </button>
                       
-                      <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                      <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0"></div>
                       
-                      <button onClick={() => setIsReversed(!isReversed)} className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-colors" title={t.reverseTimeline}>
-                         <ArrowRightLeft size={16} />
-                      </button>
-
-                      <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-
-                      <button onClick={mirrorSides} className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-colors" title={t.mirrorSides}>
-                         <ArrowUpDown size={16} />
+                      <button onClick={() => setIsReversed(!isReversed)} className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-colors shrink-0" title={t.reverseTimeline}>
+                         <ArrowLeftRight size={16} />
                       </button>
                    </div>
 
@@ -622,16 +563,16 @@
                    </div>
               </div>
 
-              {/* WRAPPER FOR EXPORT - Contains both Header and Timeline */}
+              {/* WRAPPER FOR EXPORT - Responsive Layout: Column on mobile, Row on desktop */}
               <div 
                  ref={exportContainerRef} 
                  id="export-container"
-                 className="flex-1 w-full flex flex-row items-center overflow-x-auto horizontal-scroll px-12 pt-12 pb-12"
+                 className="flex-1 w-full flex flex-col md:flex-row items-stretch overflow-x-auto horizontal-scroll px-4 md:px-12 pt-6 md:pt-12 pb-12"
               >
 
-                {/* Title Section */}
+                {/* Title Section - Full width on mobile, Fixed on desktop */}
                 <div 
-                  className={`mb-8 group/header relative flex-shrink-0 w-80 pr-12 text-left mr-8 ${currentDir === 'rtl' ? 'pl-8 ml-auto text-right ml-8' : 'pr-12 text-left mr-8'}`}
+                  className={`mb-4 md:mb-8 group/header relative flex-shrink-0 w-full md:w-80 md:pr-12 text-left md:mr-8 ${currentDir === 'rtl' ? 'md:pl-8 md:ml-auto md:text-right md:ml-8' : 'md:pr-12 md:text-left md:mr-8'}`}
                 >
                      <div className="flex flex-col w-full gap-2">
                         <div className={`w-full ${appTitle === t.defaultTitle ? 'no-print' : ''}`}>
@@ -640,7 +581,7 @@
                                 onChange={setAppTitle}
                                 placeholder={t.titlePlaceholder}
                                 align={currentDir === 'rtl' ? 'right' : 'start'}
-                                className={`text-4xl font-bold text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:outline-none w-full transition-colors pb-2`}
+                                className={`text-2xl md:text-4xl font-bold text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:outline-none w-full transition-colors pb-2`}
                             />
                         </div>
                         <div className={`w-full ${appSubtitle === t.subtitleDefault ? 'no-print' : ''}`}>
@@ -657,79 +598,69 @@
 
                 {/* Timeline Container */}
                 <div 
-                    className="relative transition-all duration-500 ease-in-out flex-1 flex flex-row items-stretch min-h-[500px]" 
+                    className="relative transition-all duration-500 ease-in-out flex-1 flex flex-row items-start min-h-[400px]" 
                     id="timeline-content"
                     dir="ltr"
                     ref={(el) => { containerRef.current = el; timelineContentRef.current = el; }}
-                    onMouseMove={handleMouseMove} 
-                    onMouseLeave={handleMouseLeave}
                 > 
-                  {/* Central Line */}
-                  <div className="absolute bg-slate-200 dark:bg-slate-700 z-0 pointer-events-none top-1/2 left-0 right-0 h-1 mt-5"></div>
+                  {/* Central Line - Fixed at Top (48px / top-12) */}
+                  <div className="absolute bg-slate-200 dark:bg-slate-700 z-0 pointer-events-none top-12 left-0 right-0 h-1"></div>
                   
-                  {/* Hover Add Button */}
-                  {hoverPos !== null && insertIndex !== null && (
-                      <div 
-                        className="absolute z-30 pointer-events-auto no-print flex items-center justify-center w-6 h-6" 
-                        style={{ left: hoverPos, top: '50%', marginTop: '20px', transform: 'translate(-50%, -50%)' }}
-                      >
-                          <button onClick={() => addNode(insertIndex)} className="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform cursor-pointer border-2 border-white dark:border-slate-900" title={t.addNode}>
-                              <Plus size={14} />
-                          </button>
-                      </div>
-                  )}
-
                   <div className="flex flex-row gap-0">
+                    {/* Explicit Add Button at Start */}
+                    <div className="flex flex-col justify-start items-center px-1 md:px-2 min-w-[30px] relative">
+                         <div className="absolute h-1 w-full bg-slate-200 dark:bg-slate-700 top-12 -z-10"></div>
+                         <button 
+                            onClick={() => addNode(0)} 
+                            className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-500 text-slate-500 dark:text-slate-400 transition-colors flex items-center justify-center no-print z-20 mt-[38px] md:mt-[38px]"
+                            title={t.addNode}
+                         >
+                            <Plus size={14} />
+                         </button>
+                    </div>
+
                     {renderGroups.map((group, groupIndex) => {
                       const mainNode = group.main;
                       const children = group.children || [];
                       const index = mainNode.originalIndex;
                       const lastIndex = index + children.length; 
                       
-                      const side = mainNode.side;
-
                       return (
-                      <div key={mainNode.id} className="relative group/wrapper print-break-inside-avoid flex-shrink-0 flex flex-col justify-center min-w-[320px] h-auto" data-group-index={groupIndex} data-start-index={index} data-last-index={lastIndex}>
-                        
-                        {/* Dot */}
-                        <div className="timeline-dot absolute rounded-full z-20 shadow-sm transition-all w-4 h-4 bg-white dark:bg-slate-800 border-4 border-blue-500 group-hover/wrapper:scale-125 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-5"></div>
-
-                        {/* HORIZONTAL LAYOUT */}
-                        <div className="flex flex-col h-full w-full">
-                            {/* Top Section (Left Side) */}
-                            <div className={`flex-1 flex flex-col justify-end pb-8 px-4 transition-all duration-300 ${side === 'left' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                                {side === 'left' && (
-                                    <NodeCard 
-                                        mainNode={mainNode} 
-                                        children={children} 
-                                        nodes={nodes} 
-                                        t={t} 
-                                        index={index}
-                                        actions={{updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, toggleDate, currentDir}}
-                                        isTopSection={true}
-                                    />
-                                )}
-                            </div>
+                      <React.Fragment key={mainNode.id}>
+                          <div className="relative group/wrapper print-break-inside-avoid flex-shrink-0 flex flex-col justify-start min-w-[85vw] md:min-w-[320px] h-auto" data-group-index={groupIndex} data-start-index={index} data-last-index={lastIndex}>
                             
-                            {/* Spacer for line */}
-                            <div className="h-10"></div>
+                            {/* Dot - Fixed on the Line at top-12 */}
+                            <div className="timeline-dot absolute rounded-full z-20 shadow-sm transition-all w-4 h-4 bg-white dark:bg-slate-800 border-4 border-blue-500 group-hover/wrapper:scale-125 top-12 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+                            
+                            {/* Vertical Connector Line from Dot to Card */}
+                            <div className="absolute top-12 left-1/2 w-[2px] h-8 bg-slate-200 dark:bg-slate-700 -translate-x-1/2 -z-10"></div>
 
-                            {/* Bottom Section (Right Side) */}
-                            <div className={`flex-1 flex flex-col justify-start pt-8 px-4 transition-all duration-300 ${side === 'right' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                                {side === 'right' && (
-                                    <NodeCard 
-                                        mainNode={mainNode} 
-                                        children={children} 
-                                        nodes={nodes} 
-                                        t={t} 
-                                        index={index}
-                                        actions={{updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, toggleDate, currentDir}}
-                                        isTopSection={false}
-                                    />
-                                )}
+                            {/* Node Card - Hanging Down */}
+                            <div className="flex flex-col justify-start pt-20 px-2 md:px-4">
+                                <NodeCard 
+                                    mainNode={mainNode} 
+                                    children={children} 
+                                    nodes={nodes} 
+                                    t={t} 
+                                    index={index}
+                                    actions={{updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, toggleDate, currentDir}}
+                                    isTopSection={false}
+                                />
                             </div>
-                        </div>
-                      </div>
+                          </div>
+
+                          {/* Add Button After Each Group */}
+                          <div className="flex flex-col justify-start items-center px-1 md:px-2 min-w-[30px] relative">
+                             <div className="absolute h-1 w-full bg-slate-200 dark:bg-slate-700 top-12 -z-10"></div>
+                             <button 
+                                onClick={() => addNode(index + 1 + (children ? children.length : 0))} 
+                                className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-500 text-slate-500 dark:text-slate-400 transition-colors flex items-center justify-center no-print z-20 opacity-100 group-hover/wrapper:opacity-100 mt-[38px] md:mt-[38px]"
+                                title={t.addNode}
+                             >
+                                <Plus size={14} />
+                             </button>
+                          </div>
+                      </React.Fragment>
                     )})}
                   </div>
                 </div>
@@ -740,14 +671,10 @@
 
         // Extracted NodeCard
         const NodeCard = ({ mainNode, children, nodes, t, index, actions, isTopSection }) => {
-            const { updateNode, deleteNode, indentNode, outdentNode, toggleNodeSide, moveNode, toggleDate, currentDir } = actions;
+            const { updateNode, deleteNode, indentNode, outdentNode, moveNode, toggleDate, currentDir } = actions;
             
-            // "Butterfly" layout for Horizontal Top Nodes
-            const reverseContent = isTopSection;
-
-            // Added w-80 (320px) to force width constraint
             return (
-                <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative hover:shadow-md transition-all overflow-hidden duration-300 ease-in-out w-80 flex ${reverseContent ? 'flex-col-reverse' : 'flex-col'}`} dir={currentDir}>
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative hover:shadow-md transition-all overflow-hidden duration-300 ease-in-out w-full md:w-80 flex flex-col" dir={currentDir}>
                     
                     {/* Main Content Area */}
                     <div className="p-4 relative z-10 bg-white dark:bg-slate-800 group/main-content transition-colors duration-300 ease-in-out">
@@ -762,8 +689,8 @@
                             </div>
                         </div>
 
-                        {/* Main Node Actions */}
-                        <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-start items-center no-print opacity-0 group-hover/main-content:opacity-100 transition-opacity">
+                        {/* Main Node Actions - Always visible on mobile, hover on desktop */}
+                        <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-start items-center no-print opacity-100 md:opacity-0 group-hover/main-content:opacity-100 transition-opacity">
                             <NodeControls 
                                 node={mainNode} 
                                 index={index} 
@@ -771,7 +698,6 @@
                                 totalNodes={nodes.length}
                                 onIndent={indentNode}
                                 onOutdent={outdentNode}
-                                onToggleSide={toggleNodeSide}
                                 onMove={moveNode}
                                 onDelete={deleteNode}
                                 onToggleDate={toggleDate}
@@ -782,7 +708,7 @@
 
                     {/* Sub Nodes Area */}
                     {children.length > 0 && (
-                        <div className={`${reverseContent ? 'border-b' : 'border-t'} border-slate-200 dark:border-slate-700`}>
+                        <div className="border-t border-slate-200 dark:border-slate-700">
                             {children.map((child) => (
                                 <SubNodeRenderer 
                                 key={child.id} 
@@ -794,7 +720,6 @@
                                 onToggleDate={toggleDate}
                                 onIndent={indentNode}
                                 onOutdent={outdentNode}
-                                onToggleSide={toggleNodeSide}
                                 onMove={moveNode}
                                 t={t}
                                 />
