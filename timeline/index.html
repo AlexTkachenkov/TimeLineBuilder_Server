@@ -447,13 +447,21 @@
 
           // --- EXPORT ---
           const fixDateInputsForExport = (clonedDoc) => {
-             const inputs = clonedDoc.querySelectorAll('input.date-input');
-             inputs.forEach(input => {
+             // Robustly map values from original DOM to ensure React state is captured
+             const originalContainer = document.getElementById('timeline-content');
+             const originalInputs = originalContainer ? originalContainer.querySelectorAll('input.date-input') : [];
+             const clonedInputs = clonedDoc.querySelectorAll('input.date-input');
+             
+             clonedInputs.forEach((clonedInput, index) => {
+                 const original = originalInputs[index];
+                 // fallback to cloned value if original not found, but original is preferred
+                 const val = original ? original.value : clonedInput.value;
+                 
                  const span = clonedDoc.createElement('span');
-                 span.textContent = input.value;
-                 span.className = input.className;
+                 span.textContent = val;
+                 span.className = clonedInput.className;
                  span.style.display = 'inline-block';
-                 input.replaceWith(span);
+                 clonedInput.replaceWith(span);
              });
           };
 
