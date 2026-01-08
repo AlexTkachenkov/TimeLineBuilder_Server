@@ -13,6 +13,23 @@
         }
     </script>
     
+    <!-- FIX: Immediate Dark Mode Check to prevent white flash -->
+    <script>
+        // Check system preference immediately and apply class before body renders
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        
+        // Optional: Listen for system changes dynamically outside React to ensure sync
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+    
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <script type="importmap">
