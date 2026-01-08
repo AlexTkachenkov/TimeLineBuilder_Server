@@ -185,7 +185,7 @@
                              type="text"
                              value={node.date}
                              onChange={(e) => onUpdate(node.id, 'date', e.target.value)}
-                             className="w-full font-semibold uppercase tracking-wider bg-transparent border-none focus:outline-none placeholder-blue-300 text-xs text-blue-600 dark:text-blue-400 dark:placeholder-blue-700"
+                             className="date-input w-full font-semibold uppercase tracking-wider bg-transparent border-none focus:outline-none placeholder-blue-300 text-xs text-blue-600 dark:text-blue-400 dark:placeholder-blue-700"
                              placeholder={t.datePlaceholder}
                          />
                      )}
@@ -211,7 +211,7 @@
                  </div>
                  
                  {/* Sub Node Actions (Bottom Row, only on hover) */}
-                 <div className="mt-3 pt-2 flex justify-start items-center gap-2 no-print opacity-0 group-hover/sub:opacity-100 transition-opacity">
+                 <div className="mt-3 pt-2 flex justify-start items-center gap-2 no-print opacity-100 md:opacity-0 md:group-hover/sub:opacity-100 transition-opacity">
                      <NodeControls 
                         node={node} 
                         index={index} 
@@ -400,10 +400,24 @@
           const handleMouseMove = (e) => {
             if (!containerRef.current) return;
             const containerRect = containerRef.current.getBoundingClientRect();
-            const centerX = containerRect.left + (containerRect.width / 2);
+            
+            // Mobile Responsive Logic
+            const isMobile = window.innerWidth < 768;
+            const isRtl = uiLanguage === 'he';
+            
+            // Adjust center detection based on layout mode
+            // 32px (2rem) is the offset used in CSS for mobile lines
+            const centerX = isMobile 
+                ? (isRtl ? containerRect.right - 32 : containerRect.left + 32)
+                : containerRect.left + (containerRect.width / 2);
+                
             const mouseX = e.clientX;
             const distance = Math.abs(mouseX - centerX);
-            if (distance > 50) { setHoverY(null); return; }
+            
+            // On mobile, allow a wider hit area for the add button
+            const maxDist = isMobile ? 80 : 50;
+            
+            if (distance > maxDist) { setHoverY(null); return; }
             const mouseY = e.clientY;
             const relativeY = mouseY - containerRect.top;
             setHoverY(relativeY);
@@ -432,6 +446,17 @@
           const handleMouseLeave = () => { setHoverY(null); };
 
           // --- EXPORT ---
+          const fixDateInputsForExport = (clonedDoc) => {
+             const inputs = clonedDoc.querySelectorAll('input.date-input');
+             inputs.forEach(input => {
+                 const span = clonedDoc.createElement('span');
+                 span.textContent = input.value;
+                 span.className = input.className;
+                 span.style.display = 'inline-block';
+                 input.replaceWith(span);
+             });
+          };
+
           const handleExportImage = async () => {
             if (window.html2canvas) {
                 const element = document.getElementById('timeline-content');
@@ -442,7 +467,13 @@
                 element.style.backgroundColor = bgColor;
                 element.style.padding = '40px 80px'; 
                 try {
-                    const canvas = await window.html2canvas(element, { backgroundColor: bgColor, scale: 2, useCORS: true, ignoreElements: (element) => element.classList.contains('no-print') });
+                    const canvas = await window.html2canvas(element, { 
+                        backgroundColor: bgColor, 
+                        scale: 2, 
+                        useCORS: true, 
+                        ignoreElements: (element) => element.classList.contains('no-print'),
+                        onclone: fixDateInputsForExport
+                    });
                     const link = document.createElement('a');
                     link.download = 'timeline.png';
                     link.href = canvas.toDataURL();
@@ -462,7 +493,13 @@
                 element.style.backgroundColor = bgColor;
                 element.style.padding = '40px 80px'; 
                 try {
-                    const canvas = await window.html2canvas(element, { backgroundColor: bgColor, scale: 2, useCORS: true, ignoreElements: (element) => element.classList.contains('no-print') });
+                    const canvas = await window.html2canvas(element, { 
+                        backgroundColor: bgColor, 
+                        scale: 2, 
+                        useCORS: true, 
+                        ignoreElements: (element) => element.classList.contains('no-print'),
+                        onclone: fixDateInputsForExport
+                    });
                     const imgData = canvas.toDataURL('image/png');
                     const pdf = new jsPDF('p', 'mm', 'a4');
                     const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -483,7 +520,15 @@
 
           const handleSaveTemplate = () => {
               const cleanNodes = nodes.map(node => ({ id: node.id, type: node.type || 'event', side: node.side, title: node.title, date: node.date, content: node.content, comments: node.comments || [], isSub: node.isSub }));
-              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cleanNodes, null, 2));
+              
+              // Prepare data object with title, subtitle, and nodes
+              const templateData = {
+                  title: appTitle,
+                  subtitle: appSubtitle,
+                  nodes: cleanNodes
+              };
+              
+              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(templateData, null, 2));
               const downloadAnchorNode = document.createElement('a');
               downloadAnchorNode.setAttribute("href", dataStr);
               downloadAnchorNode.setAttribute("download", "timeline_template.json");
@@ -499,28 +544,64 @@
               fileReader.onload = e => {
                   try {
                       const parsed = JSON.parse(e.target.result);
-                      if (Array.isArray(parsed)) setNodes(parsed);
-                      else alert("Invalid file format");
+                      
+                      // Handle new format (Object with title/subtitle/nodes)
+                      if (parsed.nodes && Array.isArray(parsed.nodes)) {
+                          setNodes(parsed.nodes);
+                          if (parsed.title) setAppTitle(parsed.title);
+                          if (parsed.subtitle) setAppSubtitle(parsed.subtitle);
+                      }
+                      // Handle legacy format (Array only)
+                      else if (Array.isArray(parsed)) {
+                          setNodes(parsed);
+                      }
+                      else { 
+                          alert("Invalid file format"); 
+                      }
                   } catch (err) { alert("Error parsing file"); }
               };
               e.target.value = null; 
           };
 
           const currentDir = uiLanguage === 'he' ? 'rtl' : 'ltr';
+          const isRtl = uiLanguage === 'he';
+
+          // Dynamic class generators for responsive/RTL layouts
+          const getLinePositionClass = () => isRtl 
+              ? 'right-8 md:right-1/2 translate-x-1/2' 
+              : 'left-8 md:left-1/2 -translate-x-1/2';
+              
+          const getDotPositionClass = () => isRtl
+              ? 'right-8 md:right-1/2 translate-x-1/2'
+              : 'left-8 md:left-1/2 -translate-x-1/2';
+
+          const getContentPaddingClass = (isRightSide) => {
+              // Mobile base: push content away from the line (which is at left-8 or right-8)
+              // Desktop overrides (md): restore central layout padding
+              if (isRtl) {
+                   return isRightSide 
+                    ? 'pr-16 md:pr-0 md:pl-8'  // Mobile: clear right line. Desktop: Left side content
+                    : 'pr-16 md:pr-8 md:pl-0'; // Mobile: clear right line. Desktop: Right side content
+              } else {
+                   return isRightSide 
+                    ? 'pl-16 md:pl-8 md:pr-0'  // Mobile: clear left line. Desktop: Right side content
+                    : 'pl-16 md:pl-0 md:pr-8'; // Mobile: clear left line. Desktop: Left side content
+              }
+          };
 
           return (
-            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-4 md:p-8 font-sans transition-colors duration-300 ease-in-out" dir={currentDir}>
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-2 md:p-8 font-sans transition-colors duration-300 ease-in-out" dir={currentDir}>
               <style>{`
                 @media print {
                   .no-print { display: none !important; }
                   body { background-color: white; }
                   .print-break-inside-avoid { break-inside: avoid; }
                 }
-                .btn-framed { @apply flex flex-col items-center justify-center w-32 h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md active:scale-95; }
+                .btn-framed { @apply flex flex-col items-center justify-center w-24 md:w-32 h-14 md:h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md active:scale-95; }
               `}</style>
 
               {/* Top Bar */}
-              <div dir="ltr" className="absolute top-4 left-4 z-50 no-print flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-1">
+              <div dir="ltr" className="absolute top-2 left-2 md:top-4 md:left-4 z-50 no-print flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-1">
                   <Globe size={16} className="text-slate-400 mx-2" />
                   <select value={uiLanguage} onChange={(e) => setUiLanguage(e.target.value)} className="bg-transparent border-none outline-none text-sm text-slate-600 dark:text-slate-300 cursor-pointer py-1 pr-2">
                       <option value="en">English</option>
@@ -532,18 +613,18 @@
                   </button>
               </div>
 
-              <div className="max-w-4xl mx-auto" id="timeline-content">
+              <div className="max-w-4xl mx-auto pt-12 md:pt-0" id="timeline-content">
                 
                 <header className="mb-12 text-center relative group">
                   <div className="mb-6 relative w-full flex justify-center items-start gap-4 group/header">
-                     <div className="flex flex-col w-full max-w-2xl gap-2">
+                     <div className="flex flex-col w-full max-w-2xl gap-2 px-4 md:px-0">
                         <div className={`w-full ${appTitle === t.defaultTitle ? 'no-print' : ''}`}>
                             <RichTextEditor
                                 value={appTitle}
                                 onChange={setAppTitle}
                                 placeholder={t.titlePlaceholder}
                                 align={headerAlign}
-                                className={`text-4xl font-bold text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:outline-none w-full transition-colors pb-2`}
+                                className={`text-3xl md:text-4xl font-bold text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:outline-none w-full transition-colors pb-2`}
                             />
                         </div>
                         <div className={`w-full ${appSubtitle === t.subtitleDefault ? 'no-print' : ''}`}>
@@ -552,12 +633,12 @@
                                 onChange={setAppSubtitle}
                                 placeholder={t.subtitlePlaceholder}
                                 align={headerAlign}
-                                className={`text-slate-500 dark:text-slate-400 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:outline-none w-full transition-colors pb-1`}
+                                className={`text-sm md:text-base text-slate-500 dark:text-slate-400 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:outline-none w-full transition-colors pb-1`}
                             />
                         </div>
                      </div>
 
-                     <div className="pt-2 opacity-0 group-hover/header:opacity-100 transition-opacity flex flex-col gap-1">
+                     <div className="pt-2 opacity-100 md:opacity-0 md:group-hover/header:opacity-100 transition-opacity flex flex-col gap-1 fixed bottom-4 right-4 md:static z-40 md:z-auto bg-white/90 md:bg-transparent dark:bg-slate-900/90 p-2 md:p-0 rounded-lg border md:border-none border-slate-200 dark:border-slate-700 shadow-lg md:shadow-none">
                          <button onClick={() => setHeaderAlign(prev => prev === 'center' ? 'start' : 'center')} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded">
                             {headerAlign === 'center' ? (currentDir === 'rtl' ? <AlignRight size={18} /> : <AlignLeft size={18} />) : <AlignCenter size={18} />}
                          </button>
@@ -567,32 +648,34 @@
                      </div>
                   </div>
                   
-                  <div className="flex flex-wrap justify-center gap-4 no-print mt-6">
+                  <div className="flex flex-wrap justify-center gap-2 md:gap-4 no-print mt-6 px-2">
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{display: 'none'}} accept=".json" />
                     <button onClick={handleSaveTemplate} className="btn-framed group">
                         <FileJson size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-green-600 dark:group-hover:text-green-400 mb-1" />
-                        <span className="font-medium text-sm text-slate-600 dark:text-slate-300">{t.save}</span>
+                        <span className="font-medium text-xs md:text-sm text-slate-600 dark:text-slate-300 text-center leading-tight">{t.save}</span>
                     </button>
                     <button onClick={handleLoadTemplateClick} className="btn-framed group">
                         <Upload size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 mb-1" />
-                        <span className="font-medium text-sm text-slate-600 dark:text-slate-300">{t.load}</span>
+                        <span className="font-medium text-xs md:text-sm text-slate-600 dark:text-slate-300 text-center leading-tight">{t.load}</span>
                     </button>
-                    <div className="w-px h-12 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+                    <div className="hidden md:block w-px h-12 bg-slate-200 dark:bg-slate-700 mx-2"></div>
                     <button onClick={handleExportPDF} className="btn-framed group hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/10">
                         <Printer size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-red-600 dark:group-hover:text-red-400 mb-1" />
-                        <span className="font-medium text-sm text-slate-600 dark:text-slate-300">{t.pdf}</span>
+                        <span className="font-medium text-xs md:text-sm text-slate-600 dark:text-slate-300 text-center leading-tight">{t.pdf}</span>
                     </button>
                     <button onClick={handleExportImage} className="btn-framed group hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/10">
                         <Download size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 mb-1" />
-                        <span className="font-medium text-sm text-slate-600 dark:text-slate-300">{t.image}</span>
+                        <span className="font-medium text-xs md:text-sm text-slate-600 dark:text-slate-300 text-center leading-tight">{t.image}</span>
                     </button>
                   </div>
                 </header>
 
                 <div className="relative pb-24" dir="ltr" ref={containerRef} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}> 
-                  <div className="absolute right-1/2 top-0 bottom-0 w-1 bg-slate-200 dark:bg-slate-700 -mr-0.5 z-0 pointer-events-none"></div>
+                  {/* Central/Side Axis Line */}
+                  <div className={`absolute top-0 bottom-0 w-1 bg-slate-200 dark:bg-slate-700 z-0 pointer-events-none ${getLinePositionClass()}`}></div>
+                  
                   {hoverY !== null && insertIndex !== null && (
-                      <div className="absolute right-1/2 translate-x-1/2 -translate-y-1/2 -mr-0.5 w-6 h-6 z-30 pointer-events-auto no-print flex items-center justify-center" style={{ top: hoverY }}>
+                      <div className={`absolute w-6 h-6 z-30 pointer-events-auto no-print flex items-center justify-center ${getLinePositionClass()}`} style={{ top: hoverY }}>
                           <button onClick={() => addNode(insertIndex)} className="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform cursor-pointer border-2 border-white dark:border-slate-900" title={t.addNode}>
                               <Plus size={14} />
                           </button>
@@ -606,21 +689,24 @@
                       const index = mainNode.originalIndex;
                       const lastIndex = index + children.length; 
                       const isRightSide = mainNode.side === 'right';
+                      // Desktop: alternates sides. Mobile: Always stack
                       const layoutClass = isRightSide ? 'md:flex-row' : 'md:flex-row-reverse';
 
                       return (
                       <div key={mainNode.id} className="relative group/wrapper print-break-inside-avoid pb-4" data-group-index={groupIndex} data-start-index={index} data-last-index={lastIndex}>
-                        <div className="timeline-dot absolute right-1/2 rounded-full -mr-2 z-10 shadow-sm transition-all w-4 h-4 bg-white dark:bg-slate-800 border-4 border-blue-500 top-8 group-hover/wrapper:scale-125"></div>
+                        {/* Timeline Dot */}
+                        <div className={`timeline-dot absolute rounded-full z-10 shadow-sm transition-all w-4 h-4 bg-white dark:bg-slate-800 border-4 border-blue-500 top-8 group-hover/wrapper:scale-125 ${getDotPositionClass()}`}></div>
+                        
                         <div className={`flex flex-col md:flex-row items-start ${layoutClass} transition-all duration-500`}>
                           <div className="hidden md:block w-1/2" />
-                          <div className={`w-full md:w-1/2 pb-4 ${isRightSide ? 'md:pl-8' : 'md:pr-8'}`} dir={currentDir}>
+                          <div className={`w-full md:w-1/2 pb-4 ${getContentPaddingClass(isRightSide)}`} dir={currentDir}>
                             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative hover:shadow-md transition-all overflow-hidden duration-300 ease-in-out">
                               
                               <div className="p-4 pb-2 relative z-10 bg-white dark:bg-slate-800 group/main-content transition-colors duration-300 ease-in-out">
                                 
                                 <div className="space-y-2">
                                     {mainNode.date !== null && (
-                                        <input type="text" value={mainNode.date} onChange={(e) => updateNode(mainNode.id, 'date', e.target.value)} className="w-full font-semibold uppercase tracking-wider bg-transparent border-none focus:outline-none placeholder-blue-300 text-xs text-blue-600 dark:text-blue-400 dark:placeholder-blue-700" placeholder={t.datePlaceholder} />
+                                        <input type="text" value={mainNode.date} onChange={(e) => updateNode(mainNode.id, 'date', e.target.value)} className="date-input w-full font-semibold uppercase tracking-wider bg-transparent border-none focus:outline-none placeholder-blue-300 text-xs text-blue-600 dark:text-blue-400 dark:placeholder-blue-700" placeholder={t.datePlaceholder} />
                                     )}
                                     <RichTextEditor value={mainNode.title} onChange={(val) => updateNode(mainNode.id, 'title', val)} singleLine={true} className="w-full font-bold text-slate-800 dark:text-slate-100 text-lg border-b border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-500 transition-colors py-1" placeholder={t.titleNodePlaceholder} />
                                     
@@ -629,8 +715,8 @@
                                     </div>
                                 </div>
 
-                                {/* Main Node Actions (Bottom Row, only on hover) */}
-                                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-start items-center no-print opacity-0 group-hover/main-content:opacity-100 transition-opacity">
+                                {/* Main Node Actions (Bottom Row, visible on hover on Desktop, always visible on mobile if desired, or same hover behavior) */}
+                                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-start items-center no-print opacity-100 md:opacity-0 md:group-hover/main-content:opacity-100 transition-opacity">
                                     <NodeControls 
                                         node={mainNode} 
                                         index={index} 
