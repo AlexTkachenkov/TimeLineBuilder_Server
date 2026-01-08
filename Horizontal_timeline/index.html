@@ -220,6 +220,8 @@
           
           const [uiLanguage, setUiLanguage] = useState('en');
           const [isReversed, setIsReversed] = useState(false); // Controls LTR/RTL flow
+          const [hoverPos, setHoverPos] = useState(null); 
+          const [insertIndex, setInsertIndex] = useState(null);
           
           const [darkMode, setDarkMode] = useState(() => {
               if (typeof window !== 'undefined' && window.matchMedia) {
@@ -315,6 +317,7 @@
             const newNodes = [...nodes];
             newNodes.splice(index, 0, newNode);
             setNodes(newNodes);
+            setHoverPos(null);
           };
 
           const deleteNode = (id) => {
@@ -366,9 +369,36 @@
                 return n;
             }));
           };
-          
-          // Removed mirrorSides button action
 
+          // --- MOUSE TRACKING ---
+          const handleMouseMove = (e) => {
+            if (!containerRef.current) return;
+            const containerRect = containerRef.current.getBoundingClientRect();
+            
+            // X position relative to the scrollable container content
+            // e.clientX is viewport X. containerRect.left is viewport X of container edge.
+            const relativeX = e.clientX - containerRect.left;
+            setHoverPos(relativeX);
+
+            const groupElements = document.querySelectorAll('[data-group-index]');
+            let calculatedIndex = nodes.length; 
+            
+            for (let i = 0; i < groupElements.length; i++) {
+                const el = groupElements[i];
+                const rect = el.getBoundingClientRect();
+                const splitPoint = rect.left + (rect.width / 2);
+                
+                if (e.clientX < splitPoint) {
+                        const startIndex = parseInt(el.getAttribute('data-start-index'));
+                        calculatedIndex = startIndex;
+                        break;
+                }
+            }
+            setInsertIndex(calculatedIndex);
+          };
+
+          const handleMouseLeave = () => { setHoverPos(null); };
+          
           // --- EXPORT ---
           const handleExportImage = async () => {
             if (window.html2canvas) {
@@ -602,23 +632,25 @@
                     id="timeline-content"
                     dir="ltr"
                     ref={(el) => { containerRef.current = el; timelineContentRef.current = el; }}
+                    onMouseMove={handleMouseMove} 
+                    onMouseLeave={handleMouseLeave}
                 > 
                   {/* Central Line - Fixed at Top (48px / top-12) */}
                   <div className="absolute bg-slate-200 dark:bg-slate-700 z-0 pointer-events-none top-12 left-0 right-0 h-1"></div>
                   
-                  <div className="flex flex-row gap-0">
-                    {/* Explicit Add Button at Start */}
-                    <div className="flex flex-col justify-start items-center px-1 md:px-2 min-w-[30px] relative">
-                         <div className="absolute h-1 w-full bg-slate-200 dark:bg-slate-700 top-12 -z-10"></div>
-                         <button 
-                            onClick={() => addNode(0)} 
-                            className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-500 text-slate-500 dark:text-slate-400 transition-colors flex items-center justify-center no-print z-20 mt-[38px] md:mt-[38px]"
-                            title={t.addNode}
-                         >
-                            <Plus size={14} />
-                         </button>
-                    </div>
+                  {/* Hover Add Button */}
+                  {hoverPos !== null && insertIndex !== null && (
+                      <div 
+                        className="absolute z-30 pointer-events-auto no-print flex items-center justify-center w-6 h-6" 
+                        style={{ left: hoverPos, top: '3rem', transform: 'translate(-50%, -50%)' }}
+                      >
+                          <button onClick={() => addNode(insertIndex)} className="w-6 h-6 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform cursor-pointer border-2 border-white dark:border-slate-900" title={t.addNode}>
+                              <Plus size={14} />
+                          </button>
+                      </div>
+                  )}
 
+                  <div className="flex flex-row gap-0">
                     {renderGroups.map((group, groupIndex) => {
                       const mainNode = group.main;
                       const children = group.children || [];
@@ -647,18 +679,6 @@
                                     isTopSection={false}
                                 />
                             </div>
-                          </div>
-
-                          {/* Add Button After Each Group */}
-                          <div className="flex flex-col justify-start items-center px-1 md:px-2 min-w-[30px] relative">
-                             <div className="absolute h-1 w-full bg-slate-200 dark:bg-slate-700 top-12 -z-10"></div>
-                             <button 
-                                onClick={() => addNode(index + 1 + (children ? children.length : 0))} 
-                                className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-500 text-slate-500 dark:text-slate-400 transition-colors flex items-center justify-center no-print z-20 opacity-100 group-hover/wrapper:opacity-100 mt-[38px] md:mt-[38px]"
-                                title={t.addNode}
-                             >
-                                <Plus size={14} />
-                             </button>
                           </div>
                       </React.Fragment>
                     )})}
