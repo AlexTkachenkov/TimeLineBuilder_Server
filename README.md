@@ -2,7 +2,7 @@ git add .
 
 git commit -m "small change"
 
-git push
+git push origin main
 
 Pull on J8 (Termux):
 
