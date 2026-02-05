@@ -1,0 +1,6 @@
+1.add a reset button
+2. make the page render only after color was set by system-
+it generates it white and then switches to dark right now
+
+
+1. sideways timeline on mobile just shows the title, and side scrolling is unintuitive

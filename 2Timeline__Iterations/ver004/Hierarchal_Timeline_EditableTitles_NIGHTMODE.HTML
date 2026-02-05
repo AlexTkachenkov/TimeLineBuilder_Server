@@ -1,0 +1,819 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Calendar, Download, Printer, ArrowLeftRight, FileJson, Upload, Indent, Outdent, Globe, AlignCenter, AlignLeft, AlignRight, Sun, Moon } from 'lucide-react';
+
+// --- Translations ---
+const TRANSLATIONS = {
+  en: {
+    save: "Save Template",
+    load: "Load Template",
+    pdf: "Export PDF",
+    image: "Export Image",
+    addStart: "Add Start",
+    addEnd: "Add End",
+    addStartTooltip: "Add Start Node",
+    addEndTooltip: "Add End Node",
+    titlePlaceholder: "Enter Title...",
+    subtitlePlaceholder: "Enter Subtitle...",
+    defaultTitle: "Hierarchical Timeline Builder", // Used for initial state only
+    promote: "Promote",
+    demote: "Demote",
+    switchSide: "Switch Side",
+    moveUp: "Move Up",
+    moveDown: "Move Down",
+    delete: "Delete",
+    datePlaceholder: "DATE",
+    titleNodePlaceholder: "Event Title...",
+    descNodePlaceholder: "Description...",
+    subTitleNodePlaceholder: "Sub-event Title...",
+    alignCenter: "Align Center",
+    alignSide: "Align Start",
+    subtitleDefault: "Hierarchical Timeline. Use Ctrl+B/I/U for formatting."
+  },
+  he: {
+    save: "שמור תבנית",
+    load: "טען תבנית",
+    pdf: "ייצוא PDF",
+    image: "ייצוא תמונה",
+    addStart: "הוסף התחלה",
+    addEnd: "הוסף סיום",
+    addStartTooltip: "הוסף התחלה",
+    addEndTooltip: "הוסף סיום",
+    titlePlaceholder: "הכנס כותרת...",
+    subtitlePlaceholder: "הכנס כותרת משנה...",
+    defaultTitle: "בונה רצף זמנים היררכי",
+    promote: "הפוך לראשי",
+    demote: "הפוך למשני",
+    switchSide: "החלף צד",
+    moveUp: "הזז למעלה",
+    moveDown: "הזז למטה",
+    delete: "מחק",
+    datePlaceholder: "תאריך",
+    titleNodePlaceholder: "כותרת האירוע...",
+    descNodePlaceholder: "תיאור...",
+    subTitleNodePlaceholder: "כותרת תת-אירוע...",
+    alignCenter: "יישור למרכז",
+    alignSide: "יישור להתחלה",
+    subtitleDefault: "ציר זמן היררכי. השתמשו ב-Ctrl+B/I/U לעיצוב."
+  }
+};
+
+// --- Rich Text Editor Component ---
+const RichTextEditor = ({ value, onChange, className, placeholder, singleLine = false, align = 'start' }) => {
+  const editorRef = useRef(null);
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      if (document.activeElement !== editorRef.current) {
+         editorRef.current.innerHTML = value || '';
+      }
+    }
+  }, [value]);
+
+  const handleInput = (e) => {
+    onChange(e.currentTarget.innerHTML);
+  };
+
+  const handleKeyDown = (e) => {
+    if (singleLine && e.key === 'Enter') {
+      e.preventDefault();
+      return;
+    }
+  };
+
+  const alignClass = align === 'center' ? 'text-center' : 'text-start';
+
+  return (
+    <div className={`relative group/editor w-full ${alignClass}`}>
+      <div
+        ref={editorRef}
+        contentEditable
+        className={`${className} empty:before:content-[attr(data-placeholder)] empty:before:text-slate-300 dark:empty:before:text-slate-500 cursor-text outline-none z-10 relative inline-block min-w-[50px]`}
+        onInput={handleInput}
+        onKeyDown={handleKeyDown}
+        suppressContentEditableWarning={true}
+        data-placeholder={placeholder}
+        dir="auto"
+      />
+    </div>
+  );
+};
+
+// --- Extracted Components ---
+
+const NodeControls = ({ node, index, isSub, totalNodes, onIndent, onOutdent, onToggleSide, onMove, onDelete, t, hoverClass }) => (
+    <div className={`absolute left-2 top-2 flex flex-col gap-1 opacity-100 md:opacity-0 ${hoverClass} transition-opacity z-20 no-print bg-white/95 dark:bg-slate-800/95 p-1 rounded shadow-sm border dark:border-slate-700 backdrop-blur-sm`}>
+       <div className="flex gap-1">
+           {isSub ? (
+               <button onClick={() => onOutdent(index)} className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded" title={t.promote}>
+                  <Outdent size={14} />
+               </button>
+           ) : (
+               <button onClick={() => onIndent(index)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded" title={t.demote}>
+                  <Indent size={14} />
+               </button>
+           )}
+           <button onClick={() => onToggleSide(node.id)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded" title={t.switchSide}>
+              <ArrowLeftRight size={14} />
+           </button>
+       </div>
+       <div className="w-full h-px bg-slate-100 dark:bg-slate-700 my-0.5"></div>
+       <div className="flex gap-1">
+          <button onClick={() => onMove(index, 'up')} disabled={index === 0} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded disabled:opacity-30" title={t.moveUp}><ChevronUp size={14} /></button>
+          <button onClick={() => onMove(index, 'down')} disabled={index === totalNodes - 1} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded disabled:opacity-30" title={t.moveDown}><ChevronDown size={14} /></button>
+          <button onClick={() => onDelete(node.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded ml-1" title={t.delete}><Trash2 size={14} /></button>
+      </div>
+    </div>
+);
+
+const SubNodeRenderer = ({ node, index, totalNodes, onUpdate, onDelete, onToggleDate, onIndent, onOutdent, onToggleSide, onMove, t }) => {
+    return (
+      <div className="relative p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 first:border-t-0 group/sub hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
+         {/* Visual Hierarchy Line */}
+         <div className="absolute right-0 top-0 bottom-0 w-[4px] bg-slate-200 dark:bg-slate-700 group-hover/sub:bg-blue-300 dark:group-hover/sub:bg-blue-600 transition-colors"></div>
+         
+         {/* Controls - Only show when hovering this specific sub-node container */}
+         <NodeControls 
+            node={node} 
+            index={index} 
+            isSub={true}
+            totalNodes={totalNodes}
+            onIndent={onIndent}
+            onOutdent={onOutdent}
+            onToggleSide={onToggleSide}
+            onMove={onMove}
+            onDelete={onDelete}
+            t={t}
+            hoverClass="group-hover/sub:opacity-100" 
+         />
+
+         <div className="space-y-2 relative z-10">
+             {/* Date Row */}
+             {node.date !== null && (
+                 <input
+                     type="text"
+                     value={node.date}
+                     onChange={(e) => onUpdate(node.id, 'date', e.target.value)}
+                     className="w-full font-semibold uppercase tracking-wider bg-transparent border-none focus:outline-none placeholder-blue-300 text-xs text-blue-600 dark:text-blue-400 dark:placeholder-blue-700"
+                     placeholder={t.datePlaceholder}
+                 />
+             )}
+             
+             {/* Title */}
+             <RichTextEditor
+                 value={node.title}
+                 onChange={(val) => onUpdate(node.id, 'title', val)}
+                 singleLine={true}
+                 className="w-full font-bold text-slate-800 dark:text-slate-100 text-lg border-b border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-500 transition-colors py-1"
+                 placeholder={t.subTitleNodePlaceholder}
+             />
+             
+             {/* Content */}
+             <RichTextEditor
+                 value={node.content}
+                 onChange={(val) => onUpdate(node.id, 'content', val)}
+                 className="w-full text-slate-600 dark:text-slate-300 text-sm min-h-[20px]"
+                 placeholder={t.descNodePlaceholder}
+             />
+         </div>
+         
+         {/* Mini Actions for Subnode */}
+         <div className="mt-3 pt-2 flex justify-start items-center gap-2 no-print opacity-0 group-hover/sub:opacity-100 transition-opacity">
+             <button onClick={() => onToggleDate(node.id)} className={`p-1.5 rounded-full transition-colors ${node.date !== null ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30' : 'text-slate-300 hover:text-blue-500 dark:text-slate-600 dark:hover:text-blue-400'}`}><Calendar size={14} /></button>
+         </div>
+      </div>
+    );
+};
+
+
+const TimelineApp = () => {
+  const fileInputRef = useRef(null);
+  const containerRef = useRef(null);
+  
+  // --- Global State ---
+  const [uiLanguage, setUiLanguage] = useState('en');
+  const [darkMode, setDarkMode] = useState(false);
+  const t = TRANSLATIONS[uiLanguage];
+
+  // Title State - Defaults set directly
+  const [appTitle, setAppTitle] = useState("Hierarchical Timeline Builder"); 
+  const [appSubtitle, setAppSubtitle] = useState("Hierarchical Timeline. Use Ctrl+B/I/U for formatting.");
+  
+  // Hover tracking for insert button
+  const [hoverY, setHoverY] = useState(null);
+  const [insertIndex, setInsertIndex] = useState(null);
+
+  // Update subtitle when language changes if it matches the default of the other language
+  useEffect(() => {
+     if (appSubtitle === TRANSLATIONS['en'].subtitleDefault || appSubtitle === TRANSLATIONS['he'].subtitleDefault) {
+         setAppSubtitle(t.subtitleDefault);
+     }
+  }, [uiLanguage, t.subtitleDefault, appSubtitle]);
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  // Alignment State (Consolidated)
+  const [headerAlign, setHeaderAlign] = useState('center');
+
+  // --- Nodes State ---
+  const [nodes, setNodes] = useState(() => {
+    try {
+      const saved = localStorage.getItem('timeline_nodes');
+      if (saved) {
+        let parsed = JSON.parse(saved);
+        return parsed.map((n, i) => ({
+             ...n, 
+             side: n.side || (i % 2 === 0 ? 'right' : 'left'),
+             type: 'event',
+             isSub: n.isSub || false
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to load from local storage", e);
+    }
+    // Default initial state
+    return [
+      {
+        "id": "root-mech",
+        "type": "event",
+        "side": "center",
+        "title": "Mechanical Roots",
+        "date": "19th Century",
+        "content": "Before electricity, computer concepts were born as mechanical machines.",
+        "comments": [],
+        "isSub": false
+      },
+      {
+        "id": "init-2",
+        "type": "event",
+        "side": "right",
+        "title": "Charles Babbage & Analytical Engine",
+        "date": "1837",
+        "content": "Babbage designed a mechanical machine with all modern computer elements: CPU (Mill), Memory (Store).",
+        "comments": [],
+        "isSub": true
+      },
+      {
+        "id": "bexxiyo30",
+        "type": "event",
+        "side": "left",
+        "title": "Ada Lovelace",
+        "date": "1843",
+        "content": "Wrote the first algorithm intended for a machine, realizing it could process symbols, not just numbers.",
+        "comments": [],
+        "isSub": true
+      },
+      {
+        "id": "root-theory",
+        "type": "event",
+        "side": "center",
+        "title": "Theory & War",
+        "date": "1930s-40s",
+        "content": "WWII drove massive demand for calculation power for ballistics and cryptography.",
+        "comments": [],
+        "isSub": false
+      },
+      {
+        "id": "turing-univ",
+        "type": "event",
+        "side": "right",
+        "title": "Alan Turing & Universal Machine",
+        "date": "1936",
+        "content": "Laid theoretical foundations for CS with the 'Turing Machine' model.",
+        "comments": [],
+        "isSub": true
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('timeline_nodes', JSON.stringify(nodes));
+  }, [nodes]);
+
+  // Load external libraries
+  useEffect(() => {
+    const loadScript = (src, id) => {
+        if (!document.getElementById(id)) {
+            const script = document.createElement('script');
+            script.src = src;
+            script.id = id;
+            script.async = true;
+            document.body.appendChild(script);
+        }
+    };
+    loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", "html2canvas-script");
+    loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", "jspdf-script");
+  }, []);
+
+  const generateId = () => Math.random().toString(36).substr(2, 9);
+
+  // --- Grouping Logic for Rendering ---
+  const getRenderGroups = () => {
+    const groups = [];
+    let currentGroup = null;
+
+    nodes.forEach((node, index) => {
+        if (node.isSub && currentGroup) {
+            currentGroup.children.push({ ...node, originalIndex: index });
+        } else {
+            if (currentGroup) groups.push(currentGroup);
+            currentGroup = { 
+                type: 'group', 
+                main: { ...node, originalIndex: index }, 
+                children: [] 
+            };
+        }
+    });
+    if (currentGroup) groups.push(currentGroup);
+    return groups;
+  };
+
+  const renderGroups = getRenderGroups();
+
+  // --- Node Operations ---
+
+  const addNode = (index) => {
+    const prevNode = index > 0 ? nodes[index - 1] : null;
+    const prevSide = prevNode ? prevNode.side : 'left';
+    const newSide = prevSide === 'right' ? 'left' : 'right';
+
+    const newNode = {
+      id: generateId(),
+      type: 'event',
+      side: newSide,
+      title: 'New Event',
+      date: '',
+      content: '',
+      isSub: false
+    };
+    const newNodes = [...nodes];
+    newNodes.splice(index, 0, newNode);
+    setNodes(newNodes);
+    setHoverY(null); // Clear insertion marker
+  };
+
+  const deleteNode = (id) => {
+    if (nodes.length <= 1) return;
+    setNodes(nodes.filter(n => n.id !== id));
+  };
+
+  const moveNode = (index, direction) => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === nodes.length - 1) return;
+
+    const newNodes = [...nodes];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    // Swap
+    const temp = newNodes[index];
+    newNodes[index] = newNodes[targetIndex];
+    newNodes[targetIndex] = temp;
+    setNodes(newNodes);
+  };
+
+  const updateNode = (id, field, value) => {
+    setNodes(nodes.map(n => n.id === id ? { ...n, [field]: value } : n));
+  };
+
+  const indentNode = (index) => {
+      const newNodes = [...nodes];
+      newNodes[index] = { ...newNodes[index], isSub: true };
+      setNodes(newNodes);
+  };
+
+  const outdentNode = (index) => {
+      const newNodes = [...nodes];
+      newNodes[index] = { ...newNodes[index], isSub: false };
+      setNodes(newNodes);
+  };
+
+  const toggleNodeSide = (id) => {
+      setNodes(nodes.map(n => 
+        n.id === id ? { ...n, side: n.side === 'right' ? 'left' : 'right' } : n
+      ));
+  };
+
+  const toggleDate = (id) => {
+    setNodes(nodes.map(n => {
+        if (n.id === id) {
+            return { ...n, date: n.date === null ? '' : (n.date !== undefined && n.date !== null ? null : '') };
+        }
+        return n;
+    }));
+  };
+
+  // --- Hover Logic for Center Line ---
+  const handleMouseMove = (e) => {
+    if (!containerRef.current) return;
+    
+    // Check if mouse is near center line
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const centerX = containerRect.left + (containerRect.width / 2);
+    const mouseX = e.clientX;
+    const distance = Math.abs(mouseX - centerX);
+    
+    if (distance > 50) { // Hover zone width
+        setHoverY(null);
+        return;
+    }
+
+    const mouseY = e.clientY;
+    
+    // Find gaps between nodes
+    const groupElements = document.querySelectorAll('[data-group-index]');
+    let found = false;
+    
+    Array.from(groupElements).forEach((el, idx) => {
+        if (found) return;
+        
+        const rect = el.getBoundingClientRect();
+        // Check if mouse is above this node (start gap)
+        if (idx === 0 && mouseY < rect.top) {
+            // Covered by static button
+        } 
+        // Check if mouse is below this node (gap to next)
+        else if (mouseY > rect.bottom) {
+            const nextEl = groupElements[idx + 1];
+            // If there's a next element, check if we are in the gap
+            if (nextEl) {
+                const nextRect = nextEl.getBoundingClientRect();
+                if (mouseY < nextRect.top) {
+                    // In the gap!
+                    setHoverY(mouseY - containerRect.top); // Precise position relative to container
+                    const nodeIndex = parseInt(el.getAttribute('data-last-index'));
+                    setInsertIndex(nodeIndex + 1);
+                    found = true;
+                }
+            }
+        }
+    });
+    
+    if (!found) setHoverY(null);
+  };
+
+  const handleMouseLeave = () => {
+      setHoverY(null);
+  };
+
+  // --- Export Handlers ---
+  const handleExportImage = async () => {
+    if (window.html2canvas) {
+        const element = document.getElementById('timeline-content');
+        const originalBg = element.style.backgroundColor;
+        const isDark = document.documentElement.classList.contains('dark');
+        element.style.backgroundColor = isDark ? '#1e293b' : '#f8fafc'; // slate-800 : slate-50
+        try {
+            const canvas = await window.html2canvas(element, {
+                backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                scale: 2,
+                useCORS: true,
+                ignoreElements: (element) => element.classList.contains('no-print')
+            });
+            const link = document.createElement('a');
+            link.download = 'timeline.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        } finally {
+            element.style.backgroundColor = '';
+        }
+    } else { alert("Loading libraries..."); }
+  };
+
+  const handleExportPDF = async () => {
+      if (window.html2canvas && window.jspdf) {
+        const { jsPDF } = window.jspdf;
+        const element = document.getElementById('timeline-content');
+        const isDark = document.documentElement.classList.contains('dark');
+        const originalBg = element.style.backgroundColor;
+        // For PDF we usually want white background unless user really wants dark PDF
+        // Let's stick to WYSIWYG
+        element.style.backgroundColor = isDark ? '#1e293b' : '#ffffff';
+        
+        try {
+            const canvas = await window.html2canvas(element, {
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                scale: 2,
+                useCORS: true,
+                ignoreElements: (element) => element.classList.contains('no-print')
+            });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgProps = pdf.getImageProperties(imgData);
+            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
+            if (imgHeight > pdfHeight) {
+                 const customPdf = new jsPDF('p', 'mm', [pdfWidth, imgHeight + 20]);
+                 customPdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+                 customPdf.save('timeline.pdf');
+            } else {
+                 pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+                 pdf.save('timeline.pdf');
+            }
+        } finally {
+            element.style.backgroundColor = originalBg;
+        }
+      } else { alert("PDF library loading..."); }
+  };
+
+  const handleSaveTemplate = () => {
+      // Create a clean copy of nodes to match the provided format exactly
+      const cleanNodes = nodes.map(node => ({
+          id: node.id,
+          type: node.type || 'event',
+          side: node.side,
+          title: node.title,
+          date: node.date,
+          content: node.content,
+          comments: node.comments || [],
+          isSub: node.isSub
+      }));
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cleanNodes, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", "timeline_template.json");
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+  };
+
+  const handleLoadTemplateClick = () => { fileInputRef.current.click(); };
+
+  const handleFileChange = (e) => {
+      const fileReader = new FileReader();
+      fileReader.readAsText(e.target.files[0], "UTF-8");
+      fileReader.onload = e => {
+          try {
+              const parsed = JSON.parse(e.target.result);
+              if (Array.isArray(parsed)) setNodes(parsed);
+              else alert("Invalid file format");
+          } catch (err) { alert("Error parsing file"); }
+      };
+      e.target.value = null; 
+  };
+
+  const currentDir = uiLanguage === 'he' ? 'rtl' : 'ltr';
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-4 md:p-8 font-sans transition-colors duration-200" dir={currentDir}>
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background-color: white; }
+          .print-break-inside-avoid { break-inside: avoid; }
+        }
+      `}</style>
+
+      {/* Language Switcher & Dark Mode */}
+      <div className="absolute top-4 left-4 z-50 no-print flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-1">
+          <Globe size={16} className="text-slate-400 mx-2" />
+          <select 
+            value={uiLanguage} 
+            onChange={(e) => setUiLanguage(e.target.value)}
+            className="bg-transparent border-none outline-none text-sm text-slate-600 dark:text-slate-300 cursor-pointer py-1 pr-2"
+          >
+              <option value="en">English</option>
+              <option value="he">עברית</option>
+          </select>
+          <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+          <button 
+            onClick={() => setDarkMode(!darkMode)}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md transition-colors"
+          >
+            {darkMode ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+      </div>
+
+      <div className="max-w-4xl mx-auto" id="timeline-content">
+        
+        {/* Header */}
+        <header className="mb-12 text-center relative group">
+          
+          <div className="mb-6 relative w-full flex justify-center items-start gap-4 group/header">
+             
+             {/* Text Blocks */}
+             <div className="flex flex-col w-full max-w-2xl gap-2">
+                {/* Title */}
+                <div className="w-full">
+                    <RichTextEditor
+                        value={appTitle}
+                        onChange={setAppTitle}
+                        placeholder={t.titlePlaceholder}
+                        align={headerAlign}
+                        className={`text-4xl font-black text-slate-900 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:outline-none w-full transition-colors pb-2`}
+                    />
+                </div>
+                {/* Subtitle */}
+                <div className="w-full">
+                    <RichTextEditor
+                        value={appSubtitle}
+                        onChange={setAppSubtitle}
+                        placeholder={t.subtitlePlaceholder}
+                        align={headerAlign}
+                        className={`text-slate-500 dark:text-slate-400 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 focus:outline-none w-full transition-colors pb-1`}
+                    />
+                </div>
+             </div>
+
+             {/* Single Alignment Toggle (Manages both) */}
+             <div className="pt-2 opacity-0 group-hover/header:opacity-100 transition-opacity">
+                 <button 
+                    onClick={() => setHeaderAlign(prev => prev === 'center' ? 'start' : 'center')}
+                    className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
+                    title={headerAlign === 'center' ? t.alignSide : t.alignCenter}
+                 >
+                    {headerAlign === 'center' ? (currentDir === 'rtl' ? <AlignRight size={18} /> : <AlignLeft size={18} />) : <AlignCenter size={18} />}
+                 </button>
+             </div>
+          </div>
+          
+          {/* Export Controls - Framed Buttons */}
+          <div className="flex flex-wrap justify-center gap-4 no-print mt-6">
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{display: 'none'}} accept=".json" />
+            
+            <button onClick={handleSaveTemplate} className="btn-framed group">
+                <FileJson size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-green-600 dark:group-hover:text-green-400 mb-1" />
+                <span className="font-medium text-sm text-slate-600 dark:text-slate-300">{t.save}</span>
+            </button>
+            
+            <button onClick={handleLoadTemplateClick} className="btn-framed group">
+                <Upload size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 mb-1" />
+                <span className="font-medium text-sm text-slate-600 dark:text-slate-300">{t.load}</span>
+            </button>
+            
+            <div className="w-px h-12 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+            
+            <button onClick={handleExportPDF} className="btn-framed group hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/10">
+                <Printer size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-red-600 dark:group-hover:text-red-400 mb-1" />
+                <span className="font-medium text-sm text-slate-600 dark:text-slate-300">{t.pdf}</span>
+            </button>
+            
+            <button onClick={handleExportImage} className="btn-framed group hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/10">
+                <Download size={18} className="text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 mb-1" />
+                <span className="font-medium text-sm text-slate-600 dark:text-slate-300">{t.image}</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Timeline Container - Force LTR so nodes don't swap sides when language changes */}
+        <div 
+            className="relative pb-24" 
+            dir="ltr" 
+            ref={containerRef}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+        > 
+          {/* Central Line */}
+          <div className="absolute right-1/2 top-0 bottom-0 w-1 bg-slate-200 dark:bg-slate-700 -mr-0.5 z-0 pointer-events-none"></div>
+
+          {/* Static Add Start Button (No Text) */}
+          <div className="relative z-10 flex justify-center mb-8 no-print">
+             <div className="absolute right-1/2 translate-x-1/2 -mr-0.5 transform"> 
+                <button 
+                    onClick={() => addNode(0)} 
+                    className="flex items-center justify-center w-10 h-10 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 rounded-full shadow-sm hover:shadow-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all font-medium text-sm hover:scale-110"
+                    title={t.addStartTooltip}
+                >
+                    <Plus size={20} />
+                </button>
+             </div>
+          </div>
+
+          {/* Mouse Tracker Insert Button */}
+          {hoverY !== null && insertIndex !== null && (
+              <div 
+                className="absolute right-1/2 translate-x-1/2 -mr-0.5 w-8 h-8 z-30 pointer-events-auto no-print flex items-center justify-center"
+                style={{ top: hoverY }}
+              >
+                  <button 
+                    onClick={() => addNode(insertIndex)}
+                    className="w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform cursor-pointer border-2 border-white dark:border-slate-900"
+                    title={t.addNode}
+                  >
+                      <Plus size={16} />
+                  </button>
+                  {/* Line decoration - makes it look like it's splitting the line */}
+                  <div className="absolute h-[2px] bg-blue-500/50 dark:bg-blue-400/50 w-24 -z-10 rounded-full"></div>
+              </div>
+          )}
+
+          {/* Render Groups Loop */}
+          <div className="space-y-0 pt-2">
+            {renderGroups.map((group, groupIndex) => {
+              const mainNode = group.main;
+              const children = group.children || [];
+              const index = mainNode.originalIndex;
+              // Calculate last index in this group to know where to insert after
+              const lastIndex = index + children.length; 
+              
+              const isRightSide = mainNode.side === 'right';
+              const layoutClass = isRightSide ? 'md:flex-row' : 'md:flex-row-reverse';
+
+              return (
+              <div 
+                key={mainNode.id} 
+                className="relative group/wrapper print-break-inside-avoid pb-4" 
+                data-group-index={groupIndex}
+                data-last-index={lastIndex}
+              >
+                {/* Dot */}
+                <div className="absolute right-1/2 rounded-full -mr-2 z-10 shadow-sm transition-all w-4 h-4 bg-white dark:bg-slate-800 border-4 border-blue-500 top-8 group-hover/wrapper:scale-125"></div>
+
+                <div className={`flex flex-col md:flex-row items-start ${layoutClass} transition-all duration-500`}>
+                  <div className="hidden md:block w-1/2" /> {/* Spacer */}
+                  
+                  {/* Card Container */}
+                  <div className={`w-full md:w-1/2 pb-4 ${isRightSide ? 'md:pl-8' : 'md:pr-8'}`} dir={currentDir}>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative hover:shadow-md transition-all overflow-hidden">
+                      
+                      {/* Main Node Content - group/main-content SCOPED HOVER */}
+                      <div className="p-4 pb-2 relative z-10 bg-white dark:bg-slate-800 group/main-content">
+                        {/* Controls - Only show on hovering THIS div */}
+                        <NodeControls 
+                            node={mainNode} 
+                            index={index} 
+                            isSub={false} 
+                            totalNodes={nodes.length}
+                            onIndent={indentNode}
+                            onOutdent={outdentNode}
+                            onToggleSide={toggleNodeSide}
+                            onMove={moveNode}
+                            onDelete={deleteNode}
+                            t={t}
+                            hoverClass="group-hover/main-content:opacity-100"
+                        />
+                        
+                        <div className="space-y-2">
+                            {mainNode.date !== null && (
+                                <input type="text" value={mainNode.date} onChange={(e) => updateNode(mainNode.id, 'date', e.target.value)} className="w-full font-semibold uppercase tracking-wider bg-transparent border-none focus:outline-none placeholder-blue-300 text-xs text-blue-600 dark:text-blue-400 dark:placeholder-blue-700" placeholder={t.datePlaceholder} />
+                            )}
+                            <RichTextEditor value={mainNode.title} onChange={(val) => updateNode(mainNode.id, 'title', val)} singleLine={true} className="w-full font-bold text-slate-800 dark:text-slate-100 text-lg border-b border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-500 transition-colors py-1" placeholder={t.titleNodePlaceholder} />
+                            <RichTextEditor value={mainNode.content} onChange={(val) => updateNode(mainNode.id, 'content', val)} className="w-full text-slate-600 dark:text-slate-300 text-sm min-h-[40px]" placeholder={t.descNodePlaceholder} />
+                        </div>
+
+                        {/* Main Actions */}
+                        <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center no-print">
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => toggleDate(mainNode.id)} className={`p-1.5 rounded-full transition-colors ${mainNode.date !== null ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30' : 'text-slate-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400'}`}><Calendar size={14} /></button>
+                            </div>
+                        </div>
+                      </div>
+
+                      {/* RENDER SUB-NODES (CONCATENATED) */}
+                      {children.length > 0 && (
+                          <div className="border-t border-slate-200 dark:border-slate-700">
+                              {children.map((child) => (
+                                  <SubNodeRenderer 
+                                    key={child.id} 
+                                    node={child} 
+                                    index={child.originalIndex}
+                                    totalNodes={nodes.length}
+                                    onUpdate={updateNode}
+                                    onDelete={deleteNode}
+                                    onToggleDate={toggleDate}
+                                    onIndent={indentNode}
+                                    onOutdent={outdentNode}
+                                    onToggleSide={toggleNodeSide}
+                                    onMove={moveNode}
+                                    t={t}
+                                  />
+                              ))}
+                          </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )})}
+          </div>
+
+          <div className="relative z-10 flex justify-center mt-8 no-print">
+             <div className="absolute right-1/2 translate-x-1/2 -mr-0.5 transform">
+                <button 
+                    onClick={() => addNode(nodes.length)} 
+                    className="flex items-center justify-center w-10 h-10 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 rounded-full shadow-sm hover:shadow-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all font-medium text-sm hover:scale-110"
+                    title={t.addEndTooltip}
+                >
+                    <Plus size={20} />
+                </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Helper Styles for Buttons */}
+      <style>{`
+        .btn-framed { @apply flex flex-col items-center justify-center w-32 h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md active:scale-95; }
+      `}</style>
+    </div>
+  );
+};
+
+export default TimelineApp;

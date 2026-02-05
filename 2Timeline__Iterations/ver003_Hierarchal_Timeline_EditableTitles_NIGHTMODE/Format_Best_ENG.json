@@ -1,0 +1,162 @@
+[
+  {
+    "id": "root-mech",
+    "type": "event",
+    "side": "right",
+    "title": "Mechanical Roots",
+    "date": "19th Century",
+    "content": "Before the electric era, the basic ideas of a \"computer\" were born as complex mechanical machines.",
+    "comments": [],
+    "isSub": false
+  },
+  {
+    "id": "init-2",
+    "type": "event",
+    "side": "right",
+    "title": "Charles Babbage & The Analytical Engine",
+    "date": "1837",
+    "content": "Babbage designed a mechanical machine containing all the elements of a modern computer: a processing unit (Mill), memory (Store), and I/O. This is the ancestor of the general-purpose computer.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "bexxiyo30",
+    "type": "event",
+    "side": "left",
+    "title": "Ada Lovelace (The First Programmer)",
+    "date": "1843",
+    "content": "Lovelace wrote the first algorithm intended to be executed by a machine (calculating Bernoulli numbers), realizing the machine could process general symbols and not just numbers.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "root-theory",
+    "type": "event",
+    "side": "left",
+    "title": "Theory & The Wartime Need",
+    "date": "1930s and early 40s",
+    "content": "World War II created a massive drive for fast calculation capabilities for ballistics and cryptography.",
+    "comments": [],
+    "isSub": false
+  },
+  {
+    "id": "turing-univ",
+    "type": "event",
+    "side": "right",
+    "title": "Alan Turing & The Universal Machine",
+    "date": "1936",
+    "content": "Turing laid the theoretical foundations for computer science with the \"Turing Machine\" – a mathematical model of a machine capable of performing any algorithmic calculation given the correct instructions.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "ww2-enigma",
+    "type": "event",
+    "side": "left",
+    "title": "Cracking the Enigma (Bletchley Park)",
+    "date": "1939-1945",
+    "content": "Turing and his team developed the Bombe to decipher the German 'Enigma' encryption machine. Concurrently, the Colossus, the first programmable electronic computer, was developed for intelligence purposes.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "root-elect",
+    "type": "event",
+    "side": "right",
+    "title": "The Birth of the Modern Electronic Computer",
+    "date": "Mid-1940s",
+    "content": "The transition from dedicated machines to programmable computers based on vacuum tubes.",
+    "comments": [],
+    "isSub": false
+  },
+  {
+    "id": "eniac-1",
+    "type": "event",
+    "side": "right",
+    "title": "The ENIAC: The First Electronic Computer",
+    "date": "1945",
+    "content": "The first general-purpose electronic computer. It weighed 30 tons, contained 18,000 vacuum tubes, and was 1,000 times faster than mechanical machines. Programming it required manual physical wiring of cables.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "von-neumann",
+    "type": "event",
+    "side": "left",
+    "title": "Von Neumann Architecture",
+    "date": "1945",
+    "content": "Defining the structure where software and data are stored in the same memory (Stored-program). A revolution that allowed immediate software changes without hardware modification, forming the basis for modern RAM and CPUs.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "basic-cycle",
+    "type": "event",
+    "side": "right",
+    "title": "The Basic Instruction Cycle (No Interrupts)",
+    "date": "1948",
+    "content": "The first practical implementation of the Von Neumann model (such as in the Manchester Baby). The processor executes a simple Fetch-Decode-Execute cycle serially, without an interrupt mechanism.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "root-trans",
+    "type": "event",
+    "side": "center",
+    "title": "The Era of the Transistor and Chips",
+    "date": "1950s to 1970s",
+    "content": "Computers became smaller, more efficient, and cheaper thanks to the invention of the transistor and the integrated circuit.",
+    "comments": [],
+    "isSub": false
+  },
+  {
+    "id": "transistor",
+    "type": "event",
+    "side": "left",
+    "title": "Invention of the Transistor",
+    "date": "1947",
+    "content": "Replacing vacuum tubes with a small, reliable, and cooler component. The turning point in electronics that enabled computer miniaturization.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "intel-4004",
+    "type": "event",
+    "side": "right",
+    "title": "The First Microprocessor (Intel 4004)",
+    "date": "1971",
+    "content": "Compressing the entire processing unit onto a single tiny silicon chip. This invention paved the way for personal computers.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "x86-arch",
+    "type": "event",
+    "side": "right",
+    "title": "Development of x86 Architecture",
+    "date": "1978",
+    "content": "Launch of the Intel 8086 processor. Its instruction set became the industrial standard for personal computers and servers, and it dominates the computing market to this day.",
+    "comments": [],
+    "isSub": false
+  },
+  {
+    "id": "amd-64bit",
+    "type": "event",
+    "side": "right",
+    "title": "The Transition to 64-bit (x86-64)",
+    "date": "2003",
+    "content": "An AMD development that enabled wide data processing and the use of RAM larger than 4GB, while maintaining backward compatibility with older software.",
+    "comments": [],
+    "isSub": true
+  },
+  {
+    "id": "multi-core",
+    "type": "event",
+    "side": "left",
+    "title": "The Era of Multi-Core and AI",
+    "date": "2005-Present",
+    "content": "Transitioning to processors with multiple cores (Multi-Core) to improve performance without overheating, and using graphics accelerators (GPUs) for massive artificial intelligence calculations.",
+    "comments": [],
+    "isSub": true
+  }
+]

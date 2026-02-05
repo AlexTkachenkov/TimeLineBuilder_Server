@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchical Timeline Builder</title>
+    
+    <!-- Scripts & Styles -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Use vanilla Lucide JS (stable global version) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+        
+        // Immediate Dark Mode Check
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+
+        // Polyfill process for some React edge cases
+        window.process = { env: { NODE_ENV: 'production' } };
+    </script>
+    
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white !important; }
+            .print-break-inside-avoid { break-inside: avoid; }
+        }
+        .btn-framed { 
+            @apply flex flex-col items-center justify-center w-24 md:w-32 h-14 md:h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md active:scale-95 cursor-pointer; 
+        }
+        .btn-icon-only {
+            @apply p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .animate-fade-in-up {
+            animation: fadeInUp 0.3s ease-out;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translate(-50%, 20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        /* Prevent contenteditable focus outlines from looking weird */
+        [contenteditable]:focus {
+            outline: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 transition-colors duration-700 ease-in-out">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect, useMemo, useCallback } = React;
+        const { createRoot } = ReactDOM;
+        
+        // --- ICON SYSTEM FIX ---
+        const IconComponent = ({ name, size = 18, className = "", ...props }) => {
+            const containerRef = useRef(null);
+
+            useEffect(() => {
+                if (window.lucide && window.lucide.icons && window.lucide.icons[name] && typeof window.lucide.createElement === 'function') {
+                    try {
+                        const iconDef = window.lucide.icons[name];
+                        const svgElement = window.lucide.createElement(iconDef);
+                        svgElement.setAttribute('width', size);
+                        svgElement.setAttribute('height', size);
+                        svgElement.setAttribute('stroke-width', 2);
+                        if (className) {
+                            const existingClass = svgElement.getAttribute('class') || '';
+                            svgElement.setAttribute('class', `${existingClass} ${className}`.trim());
+                        }
+                        if (containerRef.current) {
+                            containerRef.current.innerHTML = '';
+                            containerRef.current.appendChild(svgElement);
+                        }
+                    } catch (err) {
+                        console.error(`Failed to render icon: ${name}`, err);
+                    }
+                }
+            }, [name, size, className]);
+
+            return <span ref={containerRef} className={`inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }} {...props} />;
+        };
+
+        const Plus = (p) => <IconComponent name="Plus" {...p} />;
+        const Trash2 = (p) => <IconComponent name="Trash2" {...p} />;
+        const ChevronDown = (p) => <IconComponent name="ChevronDown" {...p} />;
+        const ChevronUp = (p) => <IconComponent name="ChevronUp" {...p} />;
+        const Calendar = (p) => <IconComponent name="Calendar" {...p} />;
+        const Download = (p) => <IconComponent name="Download" {...p} />;
+        const Printer = (p) => <IconComponent name="Printer" {...p} />;
+        const ArrowLeftRight = (p) => <IconComponent name="ArrowLeftRight" {...p} />;
+        const FileJson = (p) => <IconComponent name="FileJson" {...p} />;
+        const Upload = (p) => <IconComponent name="Upload" {...p} />;
+        const Indent = (p) => <IconComponent name="Indent" {...p} />;
+        const Outdent = (p) => <IconComponent name="Outdent" {...p} />;
+        const Globe = (p) => <IconComponent name="Globe" {...p} />;
+        const AlignCenter = (p) => <IconComponent name="AlignCenter" {...p} />;
+        const AlignLeft = (p) => <IconComponent name="AlignLeft" {...p} />;
+        const AlignRight = (p) => <IconComponent name="AlignRight" {...p} />;
+        const Sun = (p) => <IconComponent name="Sun" {...p} />;
+        const Moon = (p) => <IconComponent name="Moon" {...p} />;
+        const RefreshCcw = (p) => <IconComponent name="RefreshCcw" {...p} />; // ZigZag
+        const AlignJustify = (p) => <IconComponent name="AlignJustify" {...p} />; // One Side Toggle
+        const Type = (p) => <IconComponent name="Type" {...p} />; // Text Align Mode
+        const Info = (p) => <IconComponent name="Info" {...p} />;
+        const Shuffle = (p) => <IconComponent name="Shuffle" {...p} />; // Manual Mode
+
+
+        const TRANSLATIONS = {
+          en: {
+            save: "Save Template", load: "Load Template", pdf: "Export PDF", image: "Export Image",
+            addNode: "Add Node Here", titlePlaceholder: "Enter Title...",
+            subtitlePlaceholder: "Enter Subtitle...", defaultTitle: "Dynamic Timeline Builder.<br>click here to change title",
+            promote: "Promote", demote: "Demote", switchSide: "Switch Side", moveUp: "Move Up",
+            moveDown: "Move Down", delete: "Delete", datePlaceholder: "DATE",
+            titleNodePlaceholder: "Event Title...", descNodePlaceholder: "Description...",
+            subTitleNodePlaceholder: "Sub-event Title...", alignCenter: "Align Center",
+            alignSide: "Align Start", 
+            nodeAlignMode: "Node Alignment Mode", // New generic label
+            alignOneSide: "Align All One Side", textAlignMode: "Text Alignment Mode",
+            subtitleDefault: "Use Ctrl+B/I/U for formatting.<br>©alex tkachenkov",
+            toggleDate: "Toggle Date", loading: "Loading libraries...",
+            invalidFormat: "Invalid file format", parseError: "Error parsing file", exportSuccess: "Export initiated",
+            newEventTitle: "New Event", newEventDate: "", newEventContent: ""
+          },
+          he: {
+            save: "שמור תבנית", load: "טען תבנית", pdf: "ייצוא PDF", image: "ייצוא תמונה",
+            addNode: "הוסף אירוע כאן", titlePlaceholder: "הכנס כותרת...",
+            subtitlePlaceholder: "הכנס כותרת משנה...", defaultTitle: "בניית ציר זמן דינמי.<br>לחצו כאן כדי לשנות כותרת",
+            promote: "הפוך לראשי", demote: "הפוך למשני", switchSide: "החלף צד", moveUp: "הזז למעלה",
+            moveDown: "הזז למטה", delete: "מחק", datePlaceholder: "תאריך",
+            titleNodePlaceholder: "כותרת האירוע...", descNodePlaceholder: "תיאור...",
+            subTitleNodePlaceholder: "כותרת תת-אירוע...", alignCenter: "יישור למרכז",
+            alignSide: "יישור להתחלה", 
+            nodeAlignMode: "מצב יישור צמתים", // New generic label
+            alignOneSide: "סידור צד אחד", textAlignMode: "מצב יישור טקסט",
+            subtitleDefault: "השתמשו ב-Ctrl+B/I/U לעיצוב.<br>©אלכס טקצ'נקוב",
+            toggleDate: "הצג/הסתר תאריך", loading: "טוען ספריות...",
+            invalidFormat: "פורמט קובץ לא תקין", parseError: "שגיאה בטעינת הקובץ", exportSuccess: "ייצוא התחיל",
+            newEventTitle: "אירוע חדש", newEventDate: "", newEventContent: ""
+          }
+        };
+
+        const Toast = ({ message, onClose }) => {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 3000);
+                return () => clearTimeout(timer);
+            }, [onClose]);
+            if (!message) return null;
+            return (
+                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] animate-fade-in-up">
+                    <div className="bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 text-sm font-medium">
+                        <Info size={16} />
+                        {message}
+                    </div>
+                </div>
+            );
+        };
+
+        const RichTextEditor = ({ value, onChange, className, placeholder, singleLine = false, align = 'start', localDir = 'auto', onDirChange, globalAlignMode = 0 }) => {
+          const editorRef = useRef(null);
+          
+          useEffect(() => {
+            if (editorRef.current && editorRef.current.innerHTML !== value) {
+              if (document.activeElement !== editorRef.current) {
+                 editorRef.current.innerHTML = value || '';
+              }
+            }
+          }, [value]);
+
+          const handleInput = (e) => onChange(e.currentTarget.innerHTML);
+          
+          const handleKeyDown = (e) => {
+            // Paragraph Alignment Shortcuts: Ctrl + LeftShift / Ctrl + RightShift
+            if (e.ctrlKey && e.code === 'ShiftLeft') {
+                e.preventDefault();
+                if(onDirChange) onDirChange('ltr');
+            }
+            if (e.ctrlKey && e.code === 'ShiftRight') {
+                e.preventDefault();
+                if(onDirChange) onDirChange('rtl');
+            }
+
+            if (singleLine && e.key === 'Enter') e.preventDefault();
+          };
+
+          // Determine Alignment Class based on Global Mode or Local Preference
+          let finalDir = localDir || 'auto';
+          let finalClass = '';
+
+          // Global Modes: 0=Manual, 1=Left/Start, 2=Right/End
+          if (globalAlignMode === 1) {
+              finalClass = 'text-left'; 
+              finalDir = 'ltr';
+          } else if (globalAlignMode === 2) {
+              finalClass = 'text-right';
+              finalDir = 'rtl';
+          } else {
+              // Manual Mode - respect localDir
+              if (localDir === 'ltr') finalClass = 'text-left';
+              else if (localDir === 'rtl') finalClass = 'text-right';
+              else {
+                  // Fallback to align prop if no manual dir set
+                  finalClass = align === 'center' ? 'text-center' : 'text-start';
+              }
+          }
+
+          return (
+            <div className={`relative group/editor w-full ${finalClass}`}>
+              <div
+                ref={editorRef}
+                contentEditable
+                className={`${className} empty:before:content-[attr(data-placeholder)] empty:before:text-slate-300 dark:empty:before:text-slate-500 cursor-text outline-none z-10 relative inline-block min-w-[50px] transition-colors duration-700 ease-in-out`}
+                onInput={handleInput}
+                onKeyDown={handleKeyDown}
+                suppressContentEditableWarning={true}
+                data-placeholder={placeholder}
+                dir={finalDir}
+              />
+            </div>
+          );
+        };
+
+        const NodeControls = ({ node, index, isSub, totalNodes, onIndent, onOutdent, onToggleSide, onMove, onDelete, onToggleDate, t }) => (
+            <div className="flex flex-row items-center gap-1">
+               <button onClick={() => onToggleDate(node.id)} className={`p-1.5 rounded transition-colors duration-700 ease-in-out ${node.date !== null ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30' : 'text-slate-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400'}`} title={t.toggleDate}>
+                  <Calendar size={14} />
+               </button>
+               <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5 transition-colors duration-700 ease-in-out"></div>
+               {isSub ? (
+                   <button onClick={() => onOutdent(index)} className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded transition-colors duration-700 ease-in-out" title={t.promote}>
+                      <Outdent size={14} />
+                   </button>
+               ) : (
+                   <button onClick={() => onIndent(index)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors duration-700 ease-in-out" title={t.demote}>
+                      <Indent size={14} />
+                   </button>
+               )}
+               <button onClick={() => onToggleSide(node.id)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors duration-700 ease-in-out" title={t.switchSide}>
+                  <ArrowLeftRight size={14} />
+               </button>
+               <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5 transition-colors duration-700 ease-in-out"></div>
+               <button onClick={() => onMove(index, 'up')} disabled={index === 0} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded disabled:opacity-30 transition-colors duration-700 ease-in-out" title={t.moveUp}><ChevronUp size={14} /></button>
+               <button onClick={() => onMove(index, 'down')} disabled={index === totalNodes - 1} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded disabled:opacity-30 transition-colors duration-700 ease-in-out" title={t.moveDown}><ChevronDown size={14} /></button>
+               <button onClick={() => onDelete(node.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors duration-700 ease-in-out" title={t.delete}><Trash2 size={14} /></button>
+            </div>
+        );
+
+        const SubNodeRenderer = ({ node, index, totalNodes, onUpdate, onDelete, onToggleDate, onIndent, onOutdent, onToggleSide, onMove, globalAlignMode, t }) => (
+          <div className="relative p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 first:border-t-0 group/sub hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors duration-700 ease-in-out">
+             <div className="absolute right-0 top-0 bottom-0 w-[4px] bg-slate-200 dark:bg-slate-700 group-hover/sub:bg-blue-300 dark:group-hover/sub:bg-blue-600 transition-colors duration-700 ease-in-out"></div>
+             <div className="space-y-2 relative z-10">
+                 {node.date !== null && (
+                     <RichTextEditor 
+                        value={node.date || ''} 
+                        onChange={(val) => onUpdate(node.id, 'date', val)} 
+                        localDir={node.dateDir}
+                        onDirChange={(dir) => onUpdate(node.id, 'dateDir', dir)}
+                        globalAlignMode={globalAlignMode}
+                        className="date-input w-full font-semibold uppercase tracking-wider bg-transparent border-none focus:outline-none placeholder-blue-300 text-xs text-blue-600 dark:text-blue-400 transition-colors duration-700 ease-in-out" 
+                        placeholder={t.datePlaceholder} 
+                     />
+                 )}
+                 <RichTextEditor 
+                    value={node.title} 
+                    onChange={(val) => onUpdate(node.id, 'title', val)} 
+                    localDir={node.titleDir}
+                    onDirChange={(dir) => onUpdate(node.id, 'titleDir', dir)}
+                    globalAlignMode={globalAlignMode}
+                    singleLine={true} 
+                    className="w-full font-bold text-slate-800 dark:text-slate-100 text-lg border-b border-transparent hover:border-slate-200 dark:hover:border-slate-600 focus:border-blue-500 transition-colors duration-700 ease-in-out py-1" 
+                    placeholder={t.subTitleNodePlaceholder} 
+                 />
+                 <RichTextEditor 
+                    value={node.content} 
+                    onChange={(val) => onUpdate(node.id, 'content', val)} 
+                    localDir={node.contentDir}
+                    onDirChange={(dir) => onUpdate(node.id, 'contentDir', dir)}
+                    globalAlignMode={globalAlignMode}
+                    className="w-full text-slate-600 dark:text-slate-300 text-sm min-h-[20px] transition-colors duration-700 ease-in-out" 
+                    placeholder={t.descNodePlaceholder} 
+                 />
+             </div>
+             <div className="mt-3 pt-2 flex justify-start items-center gap-2 no-print opacity-100 md:opacity-0 md:group-hover/sub:opacity-100 transition-opacity duration-300">
+                 <NodeControls node={node} index={index} isSub={true} totalNodes={totalNodes} onIndent={onIndent} onOutdent={onOutdent} onToggleSide={onToggleSide} onMove={onMove} onDelete={onDelete} onToggleDate={onToggleDate} t={t} />
+             </div>
+          </div>
+        );
+
+        const TimelineApp = () => {
+          const fileInputRef = useRef(null);
+          const containerRef = useRef(null);
+          
+          // --- VERSION CONTROL ---
+          // Edit this string to change the version number displayed
+          const appVersion = "v0.24"; 
+          
+          const [uiLanguage, setUiLanguage] = useState('en');
+          const [toastMessage, setToastMessage] = useState(null);
+          const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
+          const t = TRANSLATIONS[uiLanguage];
+          
+          const [appTitle, setAppTitle] = useState(t.defaultTitle); 
+          const [appSubtitle, setAppSubtitle] = useState(t.subtitleDefault);
+          const [hoverY, setHoverY] = useState(null);
+          const [insertIndex, setInsertIndex] = useState(null);
+          const [headerAlign, setHeaderAlign] = useState('center');
+
+          // Text Align Mode: 0: Manual, 1: Start/Left, 2: End/Right
+          const [globalAlignMode, setGlobalAlignMode] = useState(0);
+          
+          // Node Align Mode: 0: Manual, 1: ZigZag, 2: All Right, 3: All Left
+          const [nodeAlignMode, setNodeAlignMode] = useState(0);
+
+          const showToast = (msg) => setToastMessage(msg);
+
+          const [nodes, setNodes] = useState(() => {
+            try {
+              const saved = localStorage.getItem('timeline_nodes');
+              if (saved) return JSON.parse(saved);
+            } catch (e) {}
+            return [
+              { "id": "1", "type": "event", "side": "right", "title": "Mechanical Roots", "date": "19th Century", "content": "Mechanical machines like Babbage's analytical engine.", "isSub": false },
+              { "id": "2", "type": "event", "side": "right", "title": "Analytical Engine", "date": "1837", "content": "The first design for a general-purpose computer.", "isSub": true },
+            ];
+          });
+
+          useEffect(() => {
+            localStorage.setItem('timeline_nodes', JSON.stringify(nodes));
+          }, [nodes]);
+
+          useEffect(() => {
+            if (darkMode) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+          }, [darkMode]);
+
+          useEffect(() => {
+             const en = TRANSLATIONS['en'];
+             const he = TRANSLATIONS['he'];
+             
+             if (appSubtitle === en.subtitleDefault || appSubtitle === he.subtitleDefault) setAppSubtitle(t.subtitleDefault);
+             if (appTitle === en.defaultTitle || appTitle === he.defaultTitle) setAppTitle(t.defaultTitle);
+
+             setNodes(prevNodes => prevNodes.map(node => {
+                let newNode = { ...node };
+                let changed = false;
+                if (node.title === en.newEventTitle || node.title === he.newEventTitle) { newNode.title = t.newEventTitle; changed = true; }
+                if (node.content === en.newEventContent || node.content === he.newEventContent) { newNode.content = t.newEventContent; changed = true; }
+                if (node.date === en.newEventDate || node.date === he.newEventDate) { newNode.date = t.newEventDate; changed = true; }
+                return changed ? newNode : node;
+             }));
+          }, [uiLanguage, t]);
+
+          const renderGroups = useMemo(() => {
+            const groups = [];
+            let currentGroup = null;
+            let currentZigZagSide = 'right'; // Start ZigZag from right
+
+            nodes.forEach((node, index) => {
+                // Determine display side based on nodeAlignMode
+                let displaySide = node.side; // Default to Manual (0)
+
+                if (nodeAlignMode === 1) { // ZigZag
+                    if (!node.isSub) {
+                        displaySide = currentZigZagSide;
+                        currentZigZagSide = currentZigZagSide === 'right' ? 'left' : 'right';
+                    } else {
+                        // Sub-nodes stick with parent side in visual logic usually, 
+                        // or we just don't flip the zigzag counter.
+                        // Here we keep displaySide from parent group effectively if we process groups later,
+                        // but since we are building groups now, we need to know the effective side.
+                        // However, subnodes don't really use 'side' for layout placement in the main timeline axis, 
+                        // they just nest inside the parent card. 
+                        // So only main nodes affect the visual "side" of the card.
+                    }
+                } else if (nodeAlignMode === 2) { // All Right
+                    displaySide = 'right';
+                } else if (nodeAlignMode === 3) { // All Left
+                    displaySide = 'left';
+                }
+
+                // Construct render node with displaySide (without mutating original node state permanently if just viewing)
+                // Actually, for React rendering, we can just pass a computed property.
+                // But wait, if we want "Manual" to work, we need to preserve the user's choices.
+                // So we shouldn't mutate `nodes` state when switching modes, OR we should treat modes as overrides.
+                // Treating as overrides is better for "Revert to Manual".
+                
+                const nodeWithEffectiveSide = { ...node, effectiveSide: displaySide };
+
+                if (node.isSub && currentGroup) {
+                    currentGroup.children.push({ ...nodeWithEffectiveSide, originalIndex: index });
+                } else {
+                    if (currentGroup) groups.push(currentGroup);
+                    currentGroup = { type: 'group', main: { ...nodeWithEffectiveSide, originalIndex: index }, children: [] };
+                }
+            });
+            if (currentGroup) groups.push(currentGroup);
+            return groups;
+          }, [nodes, nodeAlignMode]);
+
+          const addNode = (index) => {
+            const prevNode = index > 0 ? nodes[index - 1] : null;
+            const newSide = prevNode && prevNode.side === 'right' ? 'left' : 'right';
+            const newNode = { 
+                id: Math.random().toString(36).substr(2, 9), 
+                type: 'event', 
+                side: newSide, 
+                title: t.newEventTitle, 
+                date: t.newEventDate, 
+                content: t.newEventContent, 
+                isSub: false,
+                titleDir: 'auto',
+                contentDir: 'auto',
+                dateDir: 'auto'
+            };
+            const newNodes = [...nodes];
+            newNodes.splice(index, 0, newNode);
+            setNodes(newNodes);
+            setHoverY(null);
+          };
+
+          const deleteNode = (id) => nodes.length > 1 && setNodes(nodes.filter(n => n.id !== id));
+          const updateNode = (id, field, value) => setNodes(nodes.map(n => n.id === id ? { ...n, [field]: value } : n));
+          const moveNode = (idx, dir) => {
+            const newNodes = [...nodes];
+            const target = dir === 'up' ? idx - 1 : idx + 1;
+            if (target < 0 || target >= nodes.length) return;
+            [newNodes[idx], newNodes[target]] = [newNodes[target], newNodes[idx]];
+            setNodes(newNodes);
+          };
+
+          // --- LAYOUT FUNCTIONS ---
+          const cycleNodeAlignMode = () => {
+              // 0: Manual -> 1: ZigZag -> 2: Right -> 3: Left -> 0
+              setNodeAlignMode(prev => (prev + 1) % 4);
+          };
+
+          const cycleTextAlignMode = () => {
+              setGlobalAlignMode(prev => (prev + 1) % 3);
+          };
+          
+          const getTextAlignTooltip = () => {
+              if (globalAlignMode === 0) return "Text Alignment: Manual";
+              if (globalAlignMode === 1) return "Text Alignment: Left";
+              if (globalAlignMode === 2) return "Text Alignment: Right";
+              return "Text Alignment Mode";
+          };
+          
+          const getNodeAlignTooltip = () => {
+              if (nodeAlignMode === 0) return "Node Alignment: Manual";
+              if (nodeAlignMode === 1) return "Node Alignment: ZigZag";
+              if (nodeAlignMode === 2) return "Node Alignment: All Right";
+              if (nodeAlignMode === 3) return "Node Alignment: All Left";
+              return "Node Alignment Mode";
+          };
+
+          // --- EVENT HANDLERS ---
+          const handleMouseMove = (e) => {
+            if (!containerRef.current) return;
+            const rect = containerRef.current.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            if (Math.abs(e.clientX - centerX) > 50) return setHoverY(null);
+            setHoverY(e.clientY - rect.top);
+            
+            const groupEls = document.querySelectorAll('[data-group-index]');
+            let calcIdx = nodes.length;
+            for (let i = 0; i < groupEls.length; i++) {
+                const dot = groupEls[i].querySelector('.timeline-dot');
+                if (dot && e.clientY < dot.getBoundingClientRect().top + 10) {
+                    calcIdx = parseInt(groupEls[i].getAttribute('data-start-index'));
+                    break;
+                }
+            }
+            setInsertIndex(calcIdx);
+          };
+
+          // --- EXPORT ---
+          const fixDateInputsForExport = (clonedDoc) => {
+             const originalContainer = document.getElementById('timeline-content');
+             const originalInputs = originalContainer ? originalContainer.querySelectorAll('input.date-input') : [];
+             const clonedInputs = clonedDoc.querySelectorAll('input.date-input'); // Actually divs in new RichTextEditor, but keeping for legacy input support
+             // Since we switched Date to RichTextEditor (div), this selector might need adjustment if logic relies on <input>
+             // The new date editor uses a div with class date-input (passed via prop).
+          };
+
+          const handleExportImage = async () => {
+            if (window.html2canvas) {
+                const element = document.getElementById('timeline-content');
+                const originalBg = element.style.backgroundColor;
+                const originalPadding = element.style.padding;
+                const isDark = document.documentElement.classList.contains('dark');
+                const bgColor = isDark ? '#0f172a' : '#f8fafc';
+                element.style.backgroundColor = bgColor;
+                element.style.padding = '40px 80px'; 
+                try {
+                    const canvas = await window.html2canvas(element, { 
+                        backgroundColor: bgColor, 
+                        scale: 2, 
+                        useCORS: true, 
+                        ignoreElements: (element) => element.classList.contains('no-print'),
+                        onclone: fixDateInputsForExport
+                    });
+                    const link = document.createElement('a');
+                    link.download = 'timeline.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                    showToast(t.exportSuccess);
+                } finally { element.style.backgroundColor = ''; element.style.padding = originalPadding; }
+            } else { showToast(t.loading); }
+          };
+
+          const handleExportPDF = async () => {
+              if (window.html2canvas && window.jspdf) {
+                const { jsPDF } = window.jspdf;
+                const element = document.getElementById('timeline-content');
+                const isDark = document.documentElement.classList.contains('dark');
+                const originalBg = element.style.backgroundColor;
+                const originalPadding = element.style.padding;
+                const bgColor = isDark ? '#0f172a' : '#ffffff';
+                element.style.backgroundColor = bgColor;
+                element.style.padding = '40px 80px'; 
+                try {
+                    const canvas = await window.html2canvas(element, { 
+                        backgroundColor: bgColor, 
+                        scale: 2, 
+                        useCORS: true, 
+                        ignoreElements: (element) => element.classList.contains('no-print'),
+                        onclone: fixDateInputsForExport
+                    });
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                    if (imgHeight > pdfHeight) {
+                         const customPdf = new jsPDF('p', 'mm', [pdfWidth, imgHeight + 20]);
+                         customPdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+                         customPdf.save('timeline.pdf');
+                    } else {
+                         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+                         pdf.save('timeline.pdf');
+                    }
+                    showToast(t.exportSuccess);
+                } finally { element.style.backgroundColor = originalBg; element.style.padding = originalPadding; }
+              } else { showToast(t.loading); }
+          };
+
+          const handleSaveTemplate = () => {
+              const cleanNodes = nodes.map(node => ({ 
+                  id: node.id, type: node.type || 'event', side: node.side, 
+                  title: node.title, date: node.date, content: node.content, 
+                  isSub: node.isSub, 
+                  titleDir: node.titleDir, contentDir: node.contentDir, dateDir: node.dateDir 
+              }));
+              
+              const templateData = { title: appTitle, subtitle: appSubtitle, nodes: cleanNodes };
+              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(templateData, null, 2));
+              const downloadAnchorNode = document.createElement('a');
+              downloadAnchorNode.setAttribute("href", dataStr);
+              downloadAnchorNode.setAttribute("download", "timeline_template.json");
+              document.body.appendChild(downloadAnchorNode);
+              downloadAnchorNode.click();
+              downloadAnchorNode.remove();
+          };
+
+          const handleLoadTemplateClick = () => { fileInputRef.current.click(); };
+          const handleFileChange = (e) => {
+              const fileReader = new FileReader();
+              fileReader.readAsText(e.target.files[0], "UTF-8");
+              fileReader.onload = e => {
+                  try {
+                      const parsed = JSON.parse(e.target.result);
+                      if (parsed.nodes && Array.isArray(parsed.nodes)) {
+                          setNodes(parsed.nodes);
+                          if (parsed.title) setAppTitle(parsed.title);
+                          if (parsed.subtitle) setAppSubtitle(parsed.subtitle);
+                      } else if (Array.isArray(parsed)) {
+                          setNodes(parsed);
+                      } else { showToast(t.invalidFormat); }
+                  } catch (err) { showToast(t.parseError); }
+              };
+              e.target.value = null; 
+          };
+
+          const isRtl = uiLanguage === 'he';
+          const currentDir = isRtl ? 'rtl' : 'ltr';
+
+          return (
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-4 md:p-8 font-sans transition-colors duration-700 ease-in-out" dir={currentDir}>
+              <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
+              
+              {/* Controls Top Left */}
+              <div dir="ltr" className="fixed top-4 left-4 z-50 no-print flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-1 transition-colors duration-700 ease-in-out">
+                  <select value={uiLanguage} onChange={(e) => setUiLanguage(e.target.value)} className="bg-transparent border-none outline-none text-sm px-2 cursor-pointer dark:text-slate-300">
+                      <option value="en">English</option>
+                      <option value="he">עברית</option>
+                  </select>
+                  <button onClick={() => setDarkMode(!darkMode)} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+                  </button>
+              </div>
+
+              {/* Version Text Top Right */}
+              <div dir="ltr" className="fixed top-4 right-4 z-50 no-print text-sm md:text-base text-slate-500 dark:text-slate-400 font-sans pointer-events-none opacity-50 select-none">
+                 {appVersion}
+              </div>
+
+              <div className="max-w-4xl mx-auto pt-16 md:pt-0" id="timeline-content">
+                <header className="mb-12 text-center group">
+                  <div className="mb-6 relative w-full flex justify-center items-start gap-4 group/header">
+                     <div className="flex flex-col w-full max-w-2xl gap-2 px-4 md:px-0">
+                        <RichTextEditor value={appTitle} onChange={setAppTitle} align={headerAlign} className="text-3xl md:text-4xl font-bold mb-2 bg-transparent transition-colors duration-700 ease-in-out" placeholder={t.titlePlaceholder} />
+                        <RichTextEditor value={appSubtitle} onChange={setAppSubtitle} align={headerAlign} className="text-sm md:text-base text-slate-500 mb-6 bg-transparent transition-colors duration-700 ease-in-out" placeholder={t.subtitlePlaceholder} />
+                     </div>
+
+                     <div className="pt-2 opacity-100 md:opacity-0 md:group-hover/header:opacity-100 transition-opacity duration-300 flex flex-col gap-1 fixed bottom-4 right-4 md:static z-40 md:z-auto bg-white/90 md:bg-transparent dark:bg-slate-900/90 p-2 md:p-0 rounded-lg border md:border-none border-slate-200 dark:border-slate-700 shadow-lg md:shadow-none transition-colors duration-700 ease-in-out">
+                         {/* Header Alignment Controls */}
+                         <button onClick={() => setHeaderAlign(prev => prev === 'center' ? 'start' : 'center')} className="btn-icon-only" title="Header Alignment">
+                            {headerAlign === 'center' ? (currentDir === 'rtl' ? <AlignRight size={18} /> : <AlignLeft size={18} />) : <AlignCenter size={18} />}
+                         </button>
+                         <button onClick={cycleNodeAlignMode} className="btn-icon-only flex items-center gap-1" title={getNodeAlignTooltip()}>
+                            {nodeAlignMode === 0 && <Shuffle size={18} />}
+                            {nodeAlignMode === 1 && <RefreshCcw size={18} />}
+                            {nodeAlignMode === 2 && <AlignJustify size={18} className="transform rotate-90" />}
+                            {nodeAlignMode === 3 && <AlignJustify size={18} className="transform -rotate-90" />}
+                         </button>
+                         <button onClick={cycleTextAlignMode} className="btn-icon-only flex items-center gap-1" title={getTextAlignTooltip()}>
+                            <Type size={18} className={globalAlignMode === 0 ? "text-slate-400" : "text-blue-600 dark:text-blue-400"} />
+                         </button>
+                     </div>
+                  </div>
+                  
+                  {/* Bottom Controls: Export & Layout */}
+                  <div className="flex flex-col items-center gap-4 no-print">
+                      {/* Row 1: Save/Load/Export */}
+                      <div className="flex flex-wrap justify-center gap-3">
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{display: 'none'}} accept=".json" />
+                        <button onClick={handleSaveTemplate} className="btn-framed group transition-colors duration-700 ease-in-out">
+                            <FileJson size={18} className="mb-1 group-hover:text-green-500" />
+                            <span className="text-xs font-medium">{t.save}</span>
+                        </button>
+                        <button onClick={handleLoadTemplateClick} className="btn-framed group transition-colors duration-700 ease-in-out">
+                            <Upload size={18} className="mb-1 group-hover:text-blue-500" />
+                            <span className="text-xs font-medium">{t.load}</span>
+                        </button>
+                        <div className="hidden md:block w-px h-12 bg-slate-200 dark:bg-slate-700 mx-2 transition-colors duration-700 ease-in-out"></div>
+                        <button onClick={handleExportPDF} className="btn-framed group hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors duration-700 ease-in-out">
+                            <Printer size={18} className="mb-1 group-hover:text-red-600 dark:group-hover:text-red-400" />
+                            <span className="text-xs font-medium">{t.pdf}</span>
+                        </button>
+                        <button onClick={handleExportImage} className="btn-framed group hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors duration-700 ease-in-out">
+                            <Download size={18} className="mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                            <span className="text-xs font-medium">{t.image}</span>
+                        </button>
+                      </div>
+                  </div>
+                </header>
+
+                <div className="relative pb-24" dir="ltr" ref={containerRef} onMouseMove={handleMouseMove} onMouseLeave={() => setHoverY(null)}> 
+                  <div className={`absolute top-0 bottom-0 w-1 bg-slate-200 dark:bg-slate-700 left-1/2 -translate-x-1/2 z-0 transition-colors duration-700 ease-in-out`}></div>
+                  
+                  {hoverY !== null && (
+                      <div className="absolute left-1/2 -translate-x-1/2 z-30 no-print" style={{ top: hoverY }}>
+                          <button onClick={() => addNode(insertIndex)} className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900 transform hover:scale-125 transition-transform">
+                              <Plus size={14} />
+                          </button>
+                      </div>
+                  )}
+
+                  <div className="space-y-0 pt-2">
+                    {renderGroups.map((group, gIdx) => {
+                      const main = group.main;
+                      const isRight = main.effectiveSide === 'right'; // Use computed side
+                      return (
+                      <div key={main.id} className="relative group/wrapper pb-4" data-group-index={gIdx} data-start-index={main.originalIndex}>
+                        <div className={`timeline-dot absolute rounded-full z-10 w-4 h-4 bg-white dark:bg-slate-800 border-4 border-blue-500 top-8 left-1/2 -translate-x-1/2 transition-colors duration-700 ease-in-out`}></div>
+                        <div className={`flex flex-col md:flex-row ${isRight ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
+                          <div className="hidden md:block w-1/2" />
+                          <div className={`w-full md:w-1/2 ${isRight ? 'pl-8 md:pl-8' : 'pl-8 md:pl-0 md:pr-8'}`} dir={currentDir}>
+                            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-700 ease-in-out">
+                              <div className="p-4 group/main relative">
+                                {main.date !== null && (
+                                    <RichTextEditor 
+                                        value={main.date || ''} 
+                                        onChange={e => updateNode(main.id, 'date', e)} 
+                                        localDir={main.dateDir}
+                                        onDirChange={(dir) => updateNode(main.id, 'dateDir', dir)}
+                                        globalAlignMode={globalAlignMode}
+                                        className="date-input w-full text-xs font-bold text-blue-600 mb-1 bg-transparent border-none focus:outline-none transition-colors duration-700 ease-in-out" 
+                                        placeholder={t.datePlaceholder} 
+                                    />
+                                )}
+                                <RichTextEditor 
+                                    value={main.title} 
+                                    onChange={v => updateNode(main.id, 'title', v)} 
+                                    localDir={main.titleDir}
+                                    onDirChange={(dir) => updateNode(main.id, 'titleDir', dir)}
+                                    globalAlignMode={globalAlignMode}
+                                    className="text-lg font-bold transition-colors duration-700 ease-in-out" 
+                                    singleLine={true} 
+                                    placeholder={t.titleNodePlaceholder} 
+                                />
+                                <RichTextEditor 
+                                    value={main.content} 
+                                    onChange={v => updateNode(main.id, 'content', v)} 
+                                    localDir={main.contentDir}
+                                    onDirChange={(dir) => updateNode(main.id, 'contentDir', dir)}
+                                    globalAlignMode={globalAlignMode}
+                                    className="text-sm text-slate-600 dark:text-slate-400 mt-1 transition-colors duration-700 ease-in-out" 
+                                    placeholder={t.descNodePlaceholder} 
+                                />
+                                <div className="mt-3 flex gap-2 no-print opacity-100 md:opacity-0 group-hover/main:opacity-100 transition-opacity duration-300">
+                                    <NodeControls node={main} index={main.originalIndex} totalNodes={nodes.length} isSub={false} 
+                                        onIndent={() => updateNode(main.id, 'isSub', true)} onOutdent={() => updateNode(main.id, 'isSub', false)} 
+                                        onToggleSide={() => updateNode(main.id, 'side', main.side === 'right' ? 'left' : 'right')}
+                                        onMove={moveNode} onDelete={deleteNode} onToggleDate={id => updateNode(id, 'date', main.date === null ? '' : null)} t={t} />
+                                </div>
+                              </div>
+                              {group.children.map(child => (
+                                  <SubNodeRenderer key={child.id} node={child} index={child.originalIndex} totalNodes={nodes.length} t={t} onUpdate={updateNode} onDelete={deleteNode} 
+                                    onMove={moveNode} onIndent={() => updateNode(child.id, 'isSub', true)} onOutdent={() => updateNode(child.id, 'isSub', false)}
+                                    onToggleSide={() => updateNode(child.id, 'side', child.side === 'right' ? 'left' : 'right')} onToggleDate={id => updateNode(id, 'date', child.date === null ? '' : null)} globalAlignMode={globalAlignMode} />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )})}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<TimelineApp />);
+    </script>
+</body>
+</html>
