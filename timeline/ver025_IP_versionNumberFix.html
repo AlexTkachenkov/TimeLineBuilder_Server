@@ -19,6 +19,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <script>
+        // --- APP CONFIGURATION ---
+        // EDIT HERE: Change this value to update the version displayed in the top right
+        window.APP_VERSION = "v0.25"; 
+
         tailwind.config = {
             darkMode: 'class',
         }
@@ -309,6 +313,9 @@
         const TimelineApp = () => {
           const fileInputRef = useRef(null);
           const containerRef = useRef(null);
+          
+          // --- VERSION CONTROL ---
+          const appVersion = window.APP_VERSION || "v0.0";
           
           const [uiLanguage, setUiLanguage] = useState('en');
           const [toastMessage, setToastMessage] = useState(null);
@@ -605,6 +612,7 @@
             <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-4 md:p-8 font-sans transition-colors duration-700 ease-in-out" dir={currentDir}>
               <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
               
+              {/* Controls Top Left */}
               <div dir="ltr" className="fixed top-4 left-4 z-50 no-print flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-1 transition-colors duration-700 ease-in-out">
                   <select value={uiLanguage} onChange={(e) => setUiLanguage(e.target.value)} className="bg-transparent border-none outline-none text-sm px-2 cursor-pointer dark:text-slate-300">
                       <option value="en">English</option>
@@ -613,6 +621,11 @@
                   <button onClick={() => setDarkMode(!darkMode)} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                     {darkMode ? <Sun size={16} /> : <Moon size={16} />}
                   </button>
+              </div>
+
+              {/* Version Text Top Right */}
+              <div dir="ltr" className="fixed top-4 right-4 z-50 no-print text-sm md:text-base text-slate-500 dark:text-slate-400 font-sans pointer-events-none opacity-50 select-none">
+                 {appVersion}
               </div>
 
               <div className="max-w-4xl mx-auto pt-16 md:pt-0" id="timeline-content">
