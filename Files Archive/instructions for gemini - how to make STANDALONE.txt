@@ -1,0 +1,30 @@
+**Copy and paste this into the new chat:**
+
+I am going to upload a file containing React code. Please convert it into a **single, standalone HTML file** that I can run locally without a build step. Apply the following specific changes:
+
+1. **HTML Structure:** Wrap the code in a standard HTML5 boilerplate with a `<div id="root"></div>` in the body.
+2. **Libraries:** Include the following via CDN in the `<head>`:
+* **Tailwind CSS:** (`https://cdn.tailwindcss.com`)
+* **Babel Standalone:** (`https://unpkg.com/@babel/standalone/babel.min.js`)
+
+
+3. **Tailwind Config:** Add a script to enable class-based dark mode:
+```javascript
+tailwind.config = { darkMode: 'class' }
+
+```
+
+
+4. **Import Map:** Add an `<script type="importmap">` to handle imports for:
+* `react` (`https://esm.sh/react@18.2.0`)
+* `react-dom/client` (`https://esm.sh/react-dom@18.2.0/client`)
+* `lucide-react` (`https://esm.sh/lucide-react@0.263.1`)
+
+
+5. **Script Type:** Place my React code inside a `<script type="text/babel" data-type="module">` tag.
+6. **Mounting Logic:** Remove the `export default ...` line at the bottom of my code and replace it with the standard mounting logic:
+```javascript
+const root = createRoot(document.getElementById('root'));
+root.render(<TimelineApp />); // Or whatever the main component name is
+
+```

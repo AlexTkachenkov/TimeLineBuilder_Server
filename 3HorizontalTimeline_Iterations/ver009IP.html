@@ -9,7 +9,7 @@
     
     <script>
         // --- APP CONFIGURATION ---
-        window.APP_VERSION = "v0.25h_fix3"; 
+        window.APP_VERSION = "v0.25h_fix2"; 
 
         tailwind.config = {
             darkMode: 'class',
@@ -354,28 +354,16 @@
                 
                 const nodeWithEffectiveSide = { ...node, effectiveSide: displaySide };
 
-                if (layoutMode === 'horizontal') {
-                    // Horizontal mode: No grouping of sub-nodes into parent.
-                    // Each node (sub or main) gets its own top-level entry in the render list.
-                    // This makes them appear next to each other horizontally.
-                    groups.push({ 
-                        type: 'single', 
-                        main: { ...nodeWithEffectiveSide, originalIndex: index }, 
-                        children: [] 
-                    });
+                if (node.isSub && currentGroup) {
+                    currentGroup.children.push({ ...nodeWithEffectiveSide, originalIndex: index });
                 } else {
-                    // Vertical mode: Group sub-nodes under parent.
-                    if (node.isSub && currentGroup) {
-                        currentGroup.children.push({ ...nodeWithEffectiveSide, originalIndex: index });
-                    } else {
-                        if (currentGroup) groups.push(currentGroup);
-                        currentGroup = { type: 'group', main: { ...nodeWithEffectiveSide, originalIndex: index }, children: [] };
-                    }
+                    if (currentGroup) groups.push(currentGroup);
+                    currentGroup = { type: 'group', main: { ...nodeWithEffectiveSide, originalIndex: index }, children: [] };
                 }
             });
-            if (layoutMode !== 'horizontal' && currentGroup) groups.push(currentGroup);
+            if (currentGroup) groups.push(currentGroup);
             return groups;
-          }, [nodes, nodeAlignMode, layoutMode]);
+          }, [nodes, nodeAlignMode]);
 
           const addNode = (index) => {
             const prevNode = index > 0 ? nodes[index - 1] : null;
@@ -409,14 +397,7 @@
 
             let newNodes = [...nodes];
             const [moving] = newNodes.splice(sourceIndex, 1);
-            // Re-calculate target index because array shifted
             const adjTarget = newNodes.findIndex(n => n.id === targetId);
-            
-            // Insert before or after based on direction could be better, but generic splice works for basic reorder
-            // For smoother feel, we usually want to insert *at* the target index, pushing it.
-            // But since we removed one, if source < target, adjTarget is actually index-1 relative to original.
-            
-            // To simplify: splice it into the new position.
             newNodes.splice(adjTarget, 0, moving);
             setNodes(newNodes);
             setDraggedNodeId(null);
