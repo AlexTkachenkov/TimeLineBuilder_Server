@@ -9,7 +9,7 @@
     
     <script>
         // --- APP CONFIGURATION ---
-        window.APP_VERSION = "v0.28h_styling"; 
+        window.APP_VERSION = "v0.29h_export_fix"; 
 
         tailwind.config = {
             darkMode: 'class',
@@ -39,6 +39,7 @@
     {
       "imports": {
         "react": "https://esm.sh/react@18.2.0",
+        "react-dom": "https://esm.sh/react-dom@18.2.0",
         "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
         "lucide-react": "https://esm.sh/lucide-react@0.263.1"
       }
@@ -94,6 +95,7 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useRef, useEffect, useMemo } from 'react';
         import { createRoot } from 'react-dom/client';
+        import { createPortal } from 'react-dom';
         import { 
             Plus, Trash2, ChevronDown, ChevronUp, Calendar, Download, Printer, 
             ArrowLeftRight, FileJson, Upload, Indent, Outdent, Globe, AlignCenter, 
@@ -104,61 +106,68 @@
 
         // --- Constants ---
         
-        // PAGE BACKGROUND OPTIONS
+        // PAGE BACKGROUND OPTIONS (Mapping classes to visual representation colors)
         const BG_THEMES = {
-            slate: 'bg-slate-50 dark:bg-slate-900',
-            gray: 'bg-gray-50 dark:bg-gray-900',
-            zinc: 'bg-zinc-50 dark:bg-zinc-900',
-            neutral: 'bg-neutral-50 dark:bg-neutral-900',
-            stone: 'bg-stone-50 dark:bg-stone-900',
-            blue: 'bg-blue-50/50 dark:bg-slate-900',
-            rose: 'bg-rose-50/50 dark:bg-slate-900',
+            slate: { class: 'bg-slate-50 dark:bg-slate-900', hex: '#64748b' },
+            gray: { class: 'bg-gray-50 dark:bg-gray-900', hex: '#6b7280' },
+            zinc: { class: 'bg-zinc-50 dark:bg-zinc-900', hex: '#71717a' },
+            neutral: { class: 'bg-neutral-50 dark:bg-neutral-900', hex: '#737373' },
+            stone: { class: 'bg-stone-50 dark:bg-stone-900', hex: '#78716c' },
+            blue: { class: 'bg-blue-50/50 dark:bg-slate-900', hex: '#3b82f6' },
+            rose: { class: 'bg-rose-50/50 dark:bg-slate-900', hex: '#f43f5e' },
         };
         const BG_KEYS = Object.keys(BG_THEMES);
 
         // NODE COLOR THEMES
         const NODE_COLORS = {
             blue: { 
-                bg: 'bg-white dark:bg-blue-900/20', // Default / Tinted Dark
+                bg: 'bg-white dark:bg-blue-900/20', 
                 border: 'border-blue-500', 
                 text: 'text-blue-600 dark:text-blue-400', 
-                dot: 'border-blue-500' 
+                dot: 'border-blue-500',
+                hex: '#3b82f6'
             },
             green: { 
                 bg: 'bg-emerald-50 dark:bg-emerald-900/20', 
                 border: 'border-emerald-500', 
                 text: 'text-emerald-600 dark:text-emerald-400', 
-                dot: 'border-emerald-500' 
+                dot: 'border-emerald-500',
+                hex: '#10b981'
             },
             red: { 
                 bg: 'bg-red-50 dark:bg-red-900/20', 
                 border: 'border-red-500', 
                 text: 'text-red-600 dark:text-red-400', 
-                dot: 'border-red-500' 
+                dot: 'border-red-500',
+                hex: '#ef4444'
             },
             purple: { 
                 bg: 'bg-purple-50 dark:bg-purple-900/20', 
                 border: 'border-purple-500', 
                 text: 'text-purple-600 dark:text-purple-400', 
-                dot: 'border-purple-500' 
+                dot: 'border-purple-500',
+                hex: '#a855f7'
             },
             orange: { 
                 bg: 'bg-orange-50 dark:bg-orange-900/20', 
                 border: 'border-orange-500', 
                 text: 'text-orange-600 dark:text-orange-400', 
-                dot: 'border-orange-500' 
+                dot: 'border-orange-500',
+                hex: '#f97316'
             },
             yellow: { 
                 bg: 'bg-yellow-50 dark:bg-yellow-900/20', 
                 border: 'border-yellow-500', 
                 text: 'text-yellow-600 dark:text-yellow-400', 
-                dot: 'border-yellow-500' 
+                dot: 'border-yellow-500',
+                hex: '#eab308'
             },
             cyan: { 
                 bg: 'bg-cyan-50 dark:bg-cyan-900/20', 
                 border: 'border-cyan-500', 
                 text: 'text-cyan-600 dark:text-cyan-400', 
-                dot: 'border-cyan-500' 
+                dot: 'border-cyan-500',
+                hex: '#06b6d4'
             },
         };
 
@@ -276,37 +285,47 @@
           );
         };
 
-        // --- Color Pickers ---
-        const NodeColorPicker = ({ selectedColor, onSelect }) => (
-            <div className="absolute top-full left-0 mt-2 p-2 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 flex gap-1 z-50 animate-pop-in origin-top-left">
-                {AVAILABLE_COLORS.map(color => (
-                    <button
-                        key={color}
-                        onClick={() => onSelect(color)}
-                        className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${selectedColor === color ? 'border-slate-900 dark:border-white scale-110' : 'border-transparent'}`}
-                        style={{ backgroundColor: color === 'blue' ? '#3b82f6' : color === 'green' ? '#10b981' : color === 'red' ? '#ef4444' : color === 'purple' ? '#a855f7' : color === 'orange' ? '#f97316' : color === 'yellow' ? '#eab308' : '#06b6d4' }}
-                        title={color}
-                    />
-                ))}
-            </div>
-        );
+        // --- Portal Color Picker ---
+        const PopoverColorPicker = ({ anchorRect, onSelect, onClose, items }) => {
+            if (!anchorRect) return null;
+            
+            // Calculate Position
+            const style = {
+                top: anchorRect.bottom + window.scrollY + 8,
+                left: anchorRect.left + window.scrollX,
+            };
 
-        const GlobalBgPicker = ({ selectedBg, onSelect }) => (
-            <div className="absolute top-full left-0 mt-2 p-2 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-1 z-50 animate-pop-in origin-top-left w-32">
-                {BG_KEYS.map(bgKey => (
-                    <button
-                        key={bgKey}
-                        onClick={() => onSelect(bgKey)}
-                        className={`w-6 h-6 rounded-full border border-slate-300 dark:border-slate-600 transition-transform hover:scale-110 ${selectedBg === bgKey ? 'ring-2 ring-blue-500' : ''}`}
-                        style={{ backgroundColor: bgKey === 'slate' ? '#f8fafc' : bgKey === 'gray' ? '#f9fafb' : bgKey === 'zinc' ? '#fafafa' : bgKey === 'neutral' ? '#f5f5f5' : bgKey === 'stone' ? '#fafaf9' : bgKey === 'blue' ? '#eff6ff' : '#fff1f2' }}
-                        title={bgKey}
-                    />
-                ))}
-            </div>
-        );
+            // Prevent going off screen (basic check)
+            if (style.left + 200 > window.innerWidth) {
+                style.left = window.innerWidth - 220;
+            }
+
+            return createPortal(
+                <>
+                    <div className="fixed inset-0 z-[9998]" onClick={onClose}></div>
+                    <div 
+                        className="absolute z-[9999] p-2 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 flex gap-2 animate-pop-in flex-wrap max-w-[200px]" 
+                        style={style}
+                    >
+                        {items.map(item => (
+                            <button
+                                key={item.key}
+                                onClick={() => onSelect(item.key)}
+                                className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${item.selected ? 'border-slate-900 dark:border-white scale-110' : 'border-transparent'} hover:shadow-md`}
+                                style={{ backgroundColor: item.hex }} 
+                                title={item.key}
+                            />
+                        ))}
+                    </div>
+                </>,
+                document.body
+            );
+        };
 
         const NodeControls = ({ node, index, isSub, totalNodes, onIndent, onOutdent, onToggleSide, onMove, onDelete, onToggleDate, onColorChange, t, layoutMode }) => {
             const [showColorPicker, setShowColorPicker] = useState(false);
+            const buttonRef = useRef(null);
+            
             const sideIcon = layoutMode === 'horizontal' 
                 ? (node.side === 'left' ? <ArrowDown size={14} /> : <ArrowUp size={14} />) 
                 : <ArrowLeftRight size={14} />;
@@ -314,6 +333,16 @@
             const sideTitle = layoutMode === 'horizontal'
                 ? "Switch Up/Down"
                 : t.switchSide;
+
+            const handleColorClick = () => {
+                setShowColorPicker(!showColorPicker);
+            };
+
+            const pickerItems = AVAILABLE_COLORS.map(key => ({
+                key,
+                hex: NODE_COLORS[key].hex,
+                selected: (node.color || 'blue') === key
+            }));
 
             return (
             <div className="flex flex-row items-center gap-1 w-full relative">
@@ -341,17 +370,20 @@
                    
                    <div className="relative">
                        <button 
-                           onClick={() => setShowColorPicker(!showColorPicker)} 
+                           ref={buttonRef}
+                           onClick={handleColorClick} 
                            className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded transition-colors duration-700" 
                            title={t.changeColor}
                        >
                           <Palette size={14} />
                        </button>
                        {showColorPicker && (
-                           <div className="fixed inset-0 z-40" onClick={() => setShowColorPicker(false)}></div>
-                       )}
-                       {showColorPicker && (
-                           <NodeColorPicker selectedColor={node.color || 'blue'} onSelect={(c) => { onColorChange(node.id, c); setShowColorPicker(false); }} />
+                           <PopoverColorPicker 
+                               anchorRect={buttonRef.current?.getBoundingClientRect()} 
+                               items={pickerItems}
+                               onSelect={(c) => { onColorChange(node.id, c); setShowColorPicker(false); }}
+                               onClose={() => setShowColorPicker(false)}
+                           />
                        )}
                    </div>
                </div>
@@ -370,7 +402,7 @@
                 onDragStart={(e) => onDragStart(e, node.id)}
                 onDragOver={(e) => onDragOver(e, node.id)}
                 onDrop={(e) => onDrop(e, node.id)}
-                className={`relative p-4 ${layoutMode === 'horizontal' ? 'w-80 min-w-[20rem] border-l' : 'border-t'} border-slate-200 dark:border-slate-700 first:border-t-0 group/sub hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors duration-700 ease-in-out ${isDragging ? 'opacity-40' : 'opacity-100'}`}
+                className={`relative p-4 ${layoutMode === 'horizontal' ? 'w-80 min-w-[20rem] border-l' : 'border-t'} border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 first:border-t-0 group/sub hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors duration-700 ease-in-out ${isDragging ? 'opacity-40' : 'opacity-100'}`}
               >
                  <div className={`absolute ${layoutMode === 'horizontal' ? 'top-0 bottom-0 left-0 w-1' : 'right-0 top-0 bottom-0 w-[4px]'} bg-slate-200 dark:bg-slate-700 group-hover/sub:bg-blue-300 dark:group-hover/sub:bg-blue-600 transition-colors duration-700`}></div>
                  <div className="space-y-2 relative z-10">
@@ -415,6 +447,7 @@
         const TimelineApp = () => {
           const fileInputRef = useRef(null);
           const containerRef = useRef(null);
+          const bgPickerRef = useRef(null);
           const appVersion = window.APP_VERSION || "v0.0";
 
           const [uiLanguage, setUiLanguage] = useState('en');
@@ -590,31 +623,62 @@
           const handleExportImage = async () => {
             if (window.html2canvas) {
                 const element = document.getElementById('timeline-content');
-                // Use current background style instead of hardcoded
-                const computedStyle = window.getComputedStyle(document.body);
-                // For export, we force a solid color matching the current theme or selected bg
-                // But html2canvas captures visible background usually. 
-                // We will let it capture naturally, or force specific if needed.
+                const scrollContainer = containerRef.current;
+                
+                // Store original styles to revert later
+                const originalOverflow = scrollContainer ? scrollContainer.style.overflow : '';
+                const originalWidth = scrollContainer ? scrollContainer.style.width : '';
                 const originalPadding = element.style.padding;
+
+                // Force layout expansion for Horizontal Mode
+                if (layoutMode === 'horizontal' && scrollContainer) {
+                    scrollContainer.style.overflow = 'visible';
+                    // Force width to fit content
+                    scrollContainer.style.width = 'max-content';
+                }
+
+                // Dark mode styling
+                const isDark = document.documentElement.classList.contains('dark');
+                // Capture the exact computed background of the body to respect user's theme choice
+                const computedBg = window.getComputedStyle(document.body).backgroundColor;
+                const bgColor = isDark ? computedBg : '#f8fafc'; // Fallback for light mode just in case
+
                 element.style.padding = '40px 80px'; 
+                
                 try {
                     const canvas = await window.html2canvas(element, { 
                         scale: 2, 
                         useCORS: true, 
+                        backgroundColor: bgColor, // Force the background
                         ignoreElements: (element) => element.classList.contains('no-print'),
-                        backgroundColor: null // Transparent to let body bg show? No, canvas needs bg.
-                        // Actually, capturing 'timeline-content' might miss the body bg.
-                        // If we want the colored bg, we need to capture a container that has it.
-                        // But 'timeline-content' is inside the colored body.
-                        // Let's rely on html2canvas to capture the element's transparent bg over the body.
-                        // If that fails, we can explicitly set the backgroundColor option to match the selected theme.
+                        // Expand window size to capture everything
+                        windowWidth: layoutMode === 'horizontal' ? element.scrollWidth + 200 : undefined,
+                        width: layoutMode === 'horizontal' ? element.scrollWidth : undefined,
+                        onclone: (clonedDoc) => {
+                            const clonedElement = clonedDoc.getElementById('timeline-content');
+                            // Ensure cloned container is also expanded
+                            if (layoutMode === 'horizontal' && clonedElement) {
+                                const clonedScroll = clonedElement.querySelector('.overflow-x-auto');
+                                if (clonedScroll) {
+                                    clonedScroll.style.overflow = 'visible';
+                                    clonedScroll.style.width = 'fit-content';
+                                }
+                            }
+                        }
                     });
                     const link = document.createElement('a');
                     link.download = 'timeline.png';
                     link.href = canvas.toDataURL();
                     link.click();
                     showToast(t.exportSuccess);
-                } finally { element.style.padding = originalPadding; }
+                } finally { 
+                    // Revert styles
+                    element.style.padding = originalPadding;
+                    if (layoutMode === 'horizontal' && scrollContainer) {
+                        scrollContainer.style.overflow = originalOverflow;
+                        scrollContainer.style.width = originalWidth;
+                    }
+                }
             } else { showToast(t.loading); }
           };
 
@@ -622,30 +686,68 @@
               if (window.html2canvas && window.jspdf) {
                 const { jsPDF } = window.jspdf;
                 const element = document.getElementById('timeline-content');
+                const scrollContainer = containerRef.current;
+
+                const originalOverflow = scrollContainer ? scrollContainer.style.overflow : '';
+                const originalWidth = scrollContainer ? scrollContainer.style.width : '';
                 const originalPadding = element.style.padding;
+
+                if (layoutMode === 'horizontal' && scrollContainer) {
+                    scrollContainer.style.overflow = 'visible';
+                    scrollContainer.style.width = 'max-content';
+                }
+
+                // Dark mode styling
+                const isDark = document.documentElement.classList.contains('dark');
+                const computedBg = window.getComputedStyle(document.body).backgroundColor;
+                const bgColor = isDark ? computedBg : '#ffffff';
+
                 element.style.padding = '40px 80px'; 
                 try {
                     const canvas = await window.html2canvas(element, { 
                         scale: 2, 
                         useCORS: true, 
+                        backgroundColor: bgColor,
                         ignoreElements: (element) => element.classList.contains('no-print'),
+                        windowWidth: layoutMode === 'horizontal' ? element.scrollWidth + 200 : undefined,
+                        width: layoutMode === 'horizontal' ? element.scrollWidth : undefined,
+                        onclone: (clonedDoc) => {
+                            const clonedElement = clonedDoc.getElementById('timeline-content');
+                            if (layoutMode === 'horizontal' && clonedElement) {
+                                const clonedScroll = clonedElement.querySelector('.overflow-x-auto');
+                                if (clonedScroll) {
+                                    clonedScroll.style.overflow = 'visible';
+                                    clonedScroll.style.width = 'fit-content';
+                                }
+                            }
+                        }
                     });
                     const imgData = canvas.toDataURL('image/png');
-                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pdf = new jsPDF(layoutMode === 'horizontal' ? 'l' : 'p', 'mm', 'a4');
                     const pdfWidth = pdf.internal.pageSize.getWidth();
                     const pdfHeight = pdf.internal.pageSize.getHeight();
                     const imgProps = pdf.getImageProperties(imgData);
                     const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                    
+                    // If height is bigger than page, scale it down or add new page. 
+                    // For single page view scaling:
                     if (imgHeight > pdfHeight) {
-                         const customPdf = new jsPDF('p', 'mm', [pdfWidth, imgHeight + 20]);
-                         customPdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-                         customPdf.save('timeline.pdf');
+                         const ratio = pdfHeight / imgHeight;
+                         const newWidth = pdfWidth * ratio;
+                         const xOffset = (pdfWidth - newWidth) / 2;
+                         pdf.addImage(imgData, 'PNG', xOffset, 0, newWidth, pdfHeight);
                     } else {
                          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
-                         pdf.save('timeline.pdf');
                     }
+                    pdf.save('timeline.pdf');
                     showToast(t.exportSuccess);
-                } finally { element.style.padding = originalPadding; }
+                } finally { 
+                    element.style.padding = originalPadding;
+                    if (layoutMode === 'horizontal' && scrollContainer) {
+                        scrollContainer.style.overflow = originalOverflow;
+                        scrollContainer.style.width = originalWidth;
+                    }
+                }
               } else { showToast(t.loading); }
           };
 
@@ -733,8 +835,14 @@
           const isRtl = uiLanguage === 'he';
           const currentDir = isRtl ? 'rtl' : 'ltr';
 
+          const bgPickerItems = BG_KEYS.map(key => ({
+              key,
+              hex: BG_THEMES[key].hex,
+              selected: pageBg === key
+          }));
+
           return (
-            <div className={`min-h-screen ${BG_THEMES[pageBg]} text-slate-800 dark:text-slate-100 p-4 md:p-8 font-sans transition-colors duration-700 ease-in-out`} dir={currentDir}>
+            <div className={`min-h-screen ${BG_THEMES[pageBg].class} text-slate-800 dark:text-slate-100 p-4 md:p-8 font-sans transition-colors duration-700 ease-in-out`} dir={currentDir}>
               <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
               
               <div dir="ltr" className="fixed top-4 left-4 z-50 no-print flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm p-1 transition-colors duration-700">
@@ -747,6 +855,7 @@
                   </button>
                   <div className="relative">
                        <button 
+                           ref={bgPickerRef}
                            onClick={() => setShowBgPicker(!showBgPicker)} 
                            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                            title={t.changeBg}
@@ -754,10 +863,12 @@
                           <PaintBucket size={16} />
                        </button>
                        {showBgPicker && (
-                           <div className="fixed inset-0 z-40" onClick={() => setShowBgPicker(false)}></div>
-                       )}
-                       {showBgPicker && (
-                           <GlobalBgPicker selectedBg={pageBg} onSelect={(bg) => { setPageBg(bg); setShowBgPicker(false); }} />
+                           <PopoverColorPicker 
+                               anchorRect={bgPickerRef.current?.getBoundingClientRect()} 
+                               items={bgPickerItems}
+                               onSelect={(bg) => { setPageBg(bg); setShowBgPicker(false); }}
+                               onClose={() => setShowBgPicker(false)}
+                           />
                        )}
                    </div>
               </div>
@@ -800,7 +911,7 @@
                   </div>
                 </header>
 
-                <div className={`relative ${layoutMode === 'horizontal' ? 'flex flex-row overflow-x-auto h-[640px] items-stretch pt-0 pb-0' : 'block pb-24'}`} 
+                <div className={`relative ${layoutMode === 'horizontal' ? 'flex flex-row overflow-x-auto h-[640px] items-stretch pt-0 pb-0 overflow-y-hidden' : 'block pb-24'} overflow-x-auto`} 
                      dir="ltr" ref={containerRef} onMouseMove={handleMouseMove} onMouseLeave={() => {setHoverY(null); setHoverX(null);}}> 
                   
                   {layoutMode === 'vertical' && (
