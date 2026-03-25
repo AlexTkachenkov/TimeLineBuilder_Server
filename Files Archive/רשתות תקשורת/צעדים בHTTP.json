@@ -1,0 +1,114 @@
+{
+  "title": "צעדים בביצוע HTTP",
+  "subtitle": "",
+  "nodes": [
+    {
+      "id": "4ds1ck0n0",
+      "type": "event",
+      "side": "right",
+      "title": "המשתמש 'מספק' URL (=Uniform Resource Locator)<div><br></div>",
+      "date": "צעד מס' :1",
+      "content": ":לדוגמא- www.google.com - online.shenkar.ac.il",
+      "isSub": false,
+      "titleDir": "auto",
+      "contentDir": "ltr",
+      "dateDir": "auto"
+    },
+    {
+      "id": "w85mqyp4n",
+      "type": "event",
+      "side": "left",
+      "title": "<div>ה- browser מבצע parsing,' מנתח', את ה- URL</div><div>ו'מחלץ' ממנו את:</div>",
+      "date": "צעד מס' :2",
+      "content": "<div>* ה- hostname של ה- server</div><div>* ואת שם הקובץ אותו הוא מבקש</div>",
+      "isSub": false,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "ga0yfk4k5",
+      "type": "event",
+      "side": "right",
+      "title": "<div>ה- browser' מפעיל' מודול (תת תכנית) שלו שמממשת</div><div>פרוטוקול תקשורת(= protocol communication)</div><span style=\"text-align: left;\">שנקרא (</span><span style=\"font-size: 1.125rem;\">hyper-text transfer protocol=) http&nbsp;</span>",
+      "date": "צעד מס' :3",
+      "content": "<div><br></div><div><br></div><div>ומנחה אותו לשלוח את ההודעה הזו לתוכנית השרת</div><div>במקרה הספציפי הזה ההודעה נקראת הודעת בקשה</div><div>]http request message[</div>",
+      "isSub": false,
+      "titleDir": "rtl",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "tojpq2br2",
+      "type": "event",
+      "side": "left",
+      "title": "",
+      "date": null,
+      "content": "ב- browser ה- http מקים קישור עם http שרץ בתוכנית השרת.\nנקרא לתוכנית הזו לצורך הדיון: WSP [= Web Server Program]\nה- WSP 'כוללת' מודול, תת תוכנית, שנקרא http",
+      "isSub": true,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "sc64ngv6r",
+      "type": "event",
+      "side": "right",
+      "title": "",
+      "date": null,
+      "content": "<p data-path-to-node=\"3\">יש לנו http בתוכנית ה- browser.\nויש http בתוכנית ה- WSP.\nכדי להבדיל ביניהן נקרא זו שב- browser: http client\nולזו שב- server נקרא http server</p><p data-path-to-node=\"4\">http client מקימה קישור (connection) עם http server\nשימו לב: מדובר בקישור לו</p>",
+      "isSub": true,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "r4hshddd8",
+      "type": "event",
+      "side": "left",
+      "title": "<span style=\"text-align: right;\">Http:&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;* מקים קישור ]connection TCP ]עם http שבתוכנית השרת&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;* 'מכין' את הודעת הבקשה</span>",
+      "date": "צעד מס' :4",
+      "content": "הודעה כזו היא למעשה אוסף של בתים. במקרה הספציפי הזה כל בית מייצג תו ]= character]. להודעה יש פורמט ]= מבנה פנימי[. כלומר, כלל הבתים שמהווים את ההודעה מאורגנים כאוסף של שדות .",
+      "isSub": false,
+      "titleDir": "rtl",
+      "contentDir": "rtl",
+      "dateDir": "auto"
+    },
+    {
+      "id": "4r4k2y29z",
+      "type": "event",
+      "side": "right",
+      "title": "Http מבצע(=שולח) את 'הודעת הבקשה' דרך קישור [connection TCP] שהקים עם http שבתוכנית השרת",
+      "date": "צעד מס' :5",
+      "content": "",
+      "isSub": false,
+      "titleDir": "rtl",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "tbgbg5ogv",
+      "type": "event",
+      "side": "left",
+      "title": "",
+      "date": null,
+      "content": "<div>כעת, צריך 'להעביר' את ההודעה לכרטיס הרשת.</div><div>כדי שזה 'ישלח' אותה פיזית 'דרך' ערוץ התקשורת הפיזי.</div><div><br></div><div>היינו, כדי שכרטיס הרשת ייצר signal carrier מתאים</div><div>ש'נושא על כבו' את הביטים של ההודעה.</div><div><br></div><div>לצורך כך, מתבצעים אלפי צעדים !!!</div><div><br></div><div>בין היתר, כלל הבתים שמרכיבים את ההודעה 'מחולקים'</div><div>ו'נארזים' ביחידות מידע שנקראות מנות ]= packets]</div>",
+      "isSub": false,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "8lxxw2gr6",
+      "type": "event",
+      "side": "right",
+      "title": "<div>הגל הא\"מ עובר דרך ערוץ התקשורת</div><div>המחבר את כרטיס הרשת של C עם ה-</div><div>switch( או ה- (router home וכו'.</div>",
+      "date": null,
+      "content": "<div>הגל הא\"מ 'מגיע' לכרטיס הרשת שנמצא בקצה השני של ערוץ</div><div>התקשורת.</div><div>היינו, לכרטיס השרת של ה- switch אליו מחובר C.</div><div>כרטיס הרשת של ה- switch ממיר את הגל הא\"מ מאות אנלוגי לייצוג</div><div>בינארי ]ביטים[</div><div>על ידי כך שהוא מבצע פעולת ATD =[ Digital To Analog]</div>",
+      "isSub": false,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    }
+  ]
+}

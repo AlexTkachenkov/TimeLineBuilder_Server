@@ -1,3 +1,9 @@
+Devlog-
+-horizontal (flipping) timeline wont print the whole file in horizontal mode, both in pdf and image
+-also prints the title placeholder
+-same for the flipping beta
+-vertical timeline prints title placeholders
+
 git add .
 
 git commit -m "small change"
