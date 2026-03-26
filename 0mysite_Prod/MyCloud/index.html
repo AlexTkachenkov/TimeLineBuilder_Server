@@ -1,267 +1,541 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Android Server</title>
-    <style>
-      /* Define colors for Light Mode (Default) */
-      :root {
-        --bg-color: #f0f0f0;
-        --card-bg: white;
-        --text-main: #333;
-        --text-secondary: #666;
-        --link-color: #333;
-        --link-hover: #007bff;
-        --shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      }
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>💪 Pushup Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+  <style>
+    :root {
+      --bg:      #0a0a0a;
+      --surface: #141414;
+      --card:    #1c1c1c;
+      --border:  #2a2a2a;
+      --red:     #ff3b3b;
+      --green:   #00e676;
+      --text:    #f0f0f0;
+      --muted:   #555;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      padding: 1rem;
+      background-image: radial-gradient(circle at 80% 10%, rgba(255,59,59,0.06) 0%, transparent 50%);
+    }
+    .wrap { max-width: 440px; margin: 0 auto; }
 
-      /* Define colors for Dark Mode */
-      body.dark {
-        --bg-color: #0f172a; /* Slate 900 */
-        --card-bg: #1e293b; /* Slate 800 */
-        --text-main: #f1f5f9; /* Slate 100 */
-        --text-secondary: #94a3b8; /* Slate 400 */
-        --link-color: #f8fafc;
-        --link-hover: #60a5fa; /* Blue 400 */
-        --shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
-      }
+    /* ── Header ── */
+    .hdr { padding: 1.5rem 0 0.5rem; display: flex; align-items: flex-end; gap: 0.5rem; }
+    .hdr-title { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; letter-spacing: 0.04em; line-height: 1; }
+    .hdr-sub { color: var(--muted); font-size: 0.8rem; line-height: 1.4; padding-bottom: 0.3rem; }
 
-      body {
-        font-family: sans-serif;
-        padding: 40px;
-        background: var(--bg-color);
-        color: var(--text-main);
-        transition:
-          background-color 0.3s ease,
-          color 0.3s ease;
-        margin: 0;
-        position: relative;
-      }
+    /* ── Setup ── */
+    .setup-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.4rem;
+      margin-top: 1.25rem;
+    }
+    .setup-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .setup-or {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin: 1.1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .setup-or::before, .setup-or::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
 
-      h1 {
-        margin-bottom: 30px;
-      }
+    /* ── Inputs ── */
+    input {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 0.8rem 1rem;
+      font-size: 1rem;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: var(--red); }
+    input::placeholder { color: var(--muted); }
+    .row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 
-      .card {
-        background: var(--card-bg);
-        padding: 20px;
-        margin: 15px 0;
-        border-radius: 12px;
-        box-shadow: var(--shadow);
-        transition:
-          transform 0.2s,
-          background-color 0.3s ease;
-      }
+    /* ── Buttons ── */
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 0.8rem 1.1rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: opacity 0.1s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { opacity: 0.75; transform: scale(0.97); }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.78rem; padding: 0.4rem 0.75rem; }
+    .btn-full { width: 100%; margin-top: 0.75rem; }
 
-      .card:hover {
-        transform: translateY(-2px);
-      }
+    .btn-shout {
+      width: 100%;
+      padding: 1.15rem;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.08em;
+      border-radius: 16px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 28px rgba(255,59,59,0.35);
+      transition: transform 0.08s, box-shadow 0.08s;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+    }
+    .btn-shout:active { transform: scale(0.96); box-shadow: 0 2px 10px rgba(255,59,59,0.2); }
 
-      .card p {
-        color: var(--text-secondary);
-        margin-top: 5px;
-        margin-bottom: 0;
-      }
+    /* ── Room bar ── */
+    .room-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.7rem 1rem;
+      margin-bottom: 1.1rem;
+    }
+    .room-label { font-size: 0.72rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+    .room-code {
+      flex: 1;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.2em;
+      color: var(--red);
+    }
 
-      a {
-        text-decoration: none;
-        color: var(--link-color);
-        font-weight: bold;
-        font-size: 1.2rem;
-        transition: color 0.2s;
-        display: inline-block;
-      }
+    /* ── Status ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.pulse {
+      background: var(--green);
+      animation: pulse 1.4s infinite;
+    }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,230,118,0.5); } 50% { box-shadow: 0 0 0 5px rgba(0,230,118,0); } }
 
-      a:hover {
-        color: var(--link-hover);
-      }
+    /* ── Player list ── */
+    .players { display: flex; flex-direction: column; gap: 0.65rem; margin-bottom: 1.25rem; }
+    .player {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.9rem 1rem;
+      transition: border-color 0.2s;
+    }
+    .player.is-me { border-color: rgba(255,59,59,0.35); }
+    .player-info { flex: 1; min-width: 0; }
+    .player-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .player-you {
+      display: inline-block;
+      font-size: 0.58rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--red);
+      background: rgba(255,59,59,0.12);
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-top: 2px;
+    }
+    .player-count {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.4rem;
+      line-height: 1;
+      min-width: 3rem;
+      text-align: center;
+      color: var(--red);
+      transition: transform 0.12s;
+    }
+    .player-count.zero { color: var(--green); }
+    .player-count.bump { transform: scale(1.3); }
 
-      /* Toggle Button Styles */
-      .theme-toggle {
-        position: absolute;
-        top: 25px;
-        right: 25px;
-        background: var(--card-bg);
-        border: none;
-        cursor: pointer;
-        padding: 10px;
-        border-radius: 50%;
-        box-shadow: var(--shadow);
-        color: var(--text-main);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-        z-index: 100;
-      }
+    .btn-minus {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 1.6rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.1s, transform 0.08s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .btn-minus:not(:disabled):active { background: #2a2a2a; transform: scale(0.9); }
+    .btn-minus:disabled { opacity: 0.2; cursor: not-allowed; }
 
-      .theme-toggle:hover {
-        transform: scale(1.1);
-      }
+    /* ── Empty state ── */
+    .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; font-size: 0.875rem; line-height: 1.6; }
 
-      @media (max-width: 600px) {
-        body {
-          padding: 20px;
-        }
-        .theme-toggle {
-          top: 15px;
-          right: 15px;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <!-- Toggle Button -->
-    <button
-      class="theme-toggle"
-      id="theme-toggle"
-      aria-label="Toggle Dark Mode"
-      title="Toggle Dark Mode"
-    >
-      <!-- Sun Icon (shown in dark mode) -->
-      <svg
-        id="sun-icon"
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        style="display: none"
-      >
-        <circle cx="12" cy="12" r="5"></circle>
-        <line x1="12" y1="1" x2="12" y2="3"></line>
-        <line x1="12" y1="21" x2="12" y2="23"></line>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-        <line x1="1" y1="12" x2="3" y2="12"></line>
-        <line x1="21" y1="12" x2="23" y2="12"></line>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-      </svg>
-      <!-- Moon Icon (shown in light mode) -->
-      <svg
-        id="moon-icon"
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-      </svg>
+    /* ── Footer ── */
+    .footer { text-align: center; padding-bottom: 1.5rem; }
+    .footer a { color: var(--muted); font-size: 0.78rem; cursor: pointer; text-decoration: underline; }
+
+    /* ── Screen toggle ── */
+    #game-screen { display: none; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ════ SETUP SCREEN ════ -->
+  <div id="setup-screen">
+    <div class="hdr">
+      <span class="hdr-title">💪 PUSHUP<br>TRACKER</span>
+    </div>
+    <p style="color:var(--muted);font-size:0.82rem;margin-top:0.4rem;">The professor said it again, didn't they?</p>
+
+    <div class="setup-card">
+      <div class="setup-label">✦ Create a new room</div>
+      <input id="create-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="btn btn-red btn-full" id="create-btn">Create Room</button>
+    </div>
+
+    <div class="setup-or">or join existing</div>
+
+    <div class="setup-card">
+      <div class="setup-label">🔗 Join a room</div>
+      <input id="join-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
+      <div class="row">
+        <input id="join-code" type="text" placeholder="Room code" maxlength="6"
+               autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+               style="text-transform:uppercase;letter-spacing:0.15em;font-family:'Bebas Neue',sans-serif;font-size:1.1rem">
+        <button class="btn btn-red" id="join-btn">Join →</button>
+      </div>
+    </div>
+
+    <p style="color:var(--muted);font-size:0.72rem;text-align:center;margin-top:1.25rem;line-height:1.6;">
+      Syncs in real-time via Gun.js · needs internet access
+    </p>
+  </div>
+
+  <!-- ════ GAME SCREEN ════ -->
+  <div id="game-screen">
+    <div class="hdr" style="padding-top:0.75rem;">
+      <span class="hdr-title">💪 PUSHUP<br>TRACKER</span>
+    </div>
+
+    <div class="status-bar" style="margin-top:0.75rem;">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">Connecting…</span>
+    </div>
+
+    <div class="room-bar">
+      <span class="room-label">Room</span>
+      <span class="room-code" id="display-code"></span>
+      <button class="btn btn-ghost" id="copy-btn">Copy code</button>
+    </div>
+
+    <button class="btn-shout" id="add-all-btn">
+      🔔 PROFESSOR SAID IT — +1 ALL
     </button>
 
-    <h1>🚀 My Galaxy J8 Server</h1>
-    <h2>this server is hosted on an Android smartphone!</h2>
-    <h3>MyCloud documents and mockup versions</h3>
+    <div class="players" id="players-list">
+      <div class="empty">Waiting for players to join…<br><br>
+        Share the room code with your crew.</div>
     </div>
 
-    <div class="card">
-      <a
-        href="https://www.figma.com/design/1faendYommBzgKaOX0L0qj/Figma-basics?node-id=603-9&t=zAbnxTRzKBV9EbZq-1"
-        >☁️ MyCloud Mockup Figma
-      </a>
-      <p>
-        A high-fidelity Mockup in Figma for Software Requirement Engineering
-        Course of the MyCloud Project.
-      </p>
+    <div class="footer">
+      <a id="leave-btn">Leave room</a>
     </div>
+  </div>
 
-    <div class="card">
-      <a href="/MyCloud/MyCloud_Mockup_Gemini002/">☁️ MyCloud Mockup Website ver_002 </a>
-      <p>
-        A high-fidelity Mockup for Software Requirement Engineering Course of
-        the MyCloud Project.
-      </p>
-      <p>This was the base for the Figma Mockup</p>
-    </div>
+</div><!-- /wrap -->
 
-    <div class="card">
-      <a href="/MyCloud/MyCloud_Beta_Claude003/">☁️ MyCloud Mockup Website ver_003 (Claude)</a>
-      <p>
-        A more robust high-fidelity Mockup.
-      </p>
-    </div>
+<script>
+(function () {
+  'use strict';
 
-    <div class="card">
-      <a href="/MyCloud/MyCloud_Beta_Claude004/">☁️ MyCloud Mockup Website ver_004 (Claude)</a>
-      <p>
-        A more robust high-fidelity Mockup.
-      </p>
-    </div>
+  /* ── Gun.js setup ─────────────────────────────────────────────────── */
+  // Public relay nodes — add more or self-host for reliability
+  var gun = Gun([
+    'https://gun-manhattan.herokuapp.com/gun',
+    'https://gun-us.herokuapp.com/gun',
+    'https://gundb.io/gun',
+  ]);
 
-    
+  var myName   = '';
+  var roomCode = '';
+  var roomRef  = null;
+  var state    = {};   // { playerName: count }
+  var connected = false;
 
-    <div class="card">
-      <a href="/MyCloud/Testbed/"> Test Plot </a>
-      <p>Testbed for new pages.</p>
-    </div>
+  /* ── Helpers ──────────────────────────────────────────────────────── */
+  function genCode() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var c = '';
+    for (var i = 0; i < 5; i++) c += chars[Math.floor(Math.random() * chars.length)];
+    return c;
+  }
 
-    <div class="card">
-      <a href="/">return to index </a>
-      <p>Testbed for new pages.</p>
-    </div>
+  function cleanName(n) {
+    return n.replace(/[^\w\s\-\.]/g, '').trim().slice(0, 20);
+  }
 
-    
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 
-    <!-- <div class="card">
-      <a href="/lol/">📅 lorem ipsum</a>
-      <p>A React-based hierarchical timeline tool.</p>
-    </div> -->
+  /* ── UI helpers ───────────────────────────────────────────────────── */
+  function show(id)  { document.getElementById(id).style.display = ''; }
+  function hide(id)  { document.getElementById(id).style.display = 'none'; }
 
-    <script>
-      const toggleButton = document.getElementById("theme-toggle");
-      const body = document.body;
-      const sunIcon = document.getElementById("sun-icon");
-      const moonIcon = document.getElementById("moon-icon");
+  function setStatus(live, text) {
+    var dot  = document.getElementById('status-dot');
+    var span = document.getElementById('status-text');
+    dot.className  = 'dot' + (live ? ' pulse' : '');
+    span.textContent = text;
+  }
 
-      // Function to update icon visibility
-      function updateIcons(isDark) {
-        if (isDark) {
-          sunIcon.style.display = "block";
-          moonIcon.style.display = "none";
-        } else {
-          sunIcon.style.display = "none";
-          moonIcon.style.display = "block";
-        }
+  function bumpCount(name) {
+    var el = document.querySelector('[data-name="' + CSS.escape(name) + '"] .player-count');
+    if (!el) return;
+    el.classList.add('bump');
+    setTimeout(function () { el.classList.remove('bump'); }, 150);
+  }
+
+  /* ── Render ───────────────────────────────────────────────────────── */
+  function render() {
+    var list   = document.getElementById('players-list');
+    var names  = Object.keys(state);
+
+    if (names.length === 0) {
+      list.innerHTML = '<div class="empty">Waiting for players to join…<br><br>Share the room code with your crew.</div>';
+      return;
+    }
+
+    names.sort(function (a, b) {
+      var d = (state[b] || 0) - (state[a] || 0);
+      if (d !== 0) return d;
+      if (a === myName) return -1;
+      if (b === myName) return 1;
+      return a.localeCompare(b);
+    });
+
+    list.innerHTML = names.map(function (name) {
+      var count = state[name] || 0;
+      var isMe  = name === myName;
+      var safe  = esc(name);
+      return [
+        '<div class="player', (isMe ? ' is-me' : ''), '" data-name="', safe, '">',
+          '<div class="player-info">',
+            '<div class="player-name">', safe, '</div>',
+            isMe ? '<div class="player-you">you</div>' : '',
+          '</div>',
+          '<div class="player-count', (count === 0 ? ' zero' : ''), '">', count, '</div>',
+          '<button class="btn-minus" data-player="', safe, '"', (count === 0 ? ' disabled' : ''), '>−</button>',
+        '</div>',
+      ].join('');
+    }).join('');
+
+    // Update player count in status
+    if (connected) {
+      setStatus(true, 'Live · ' + names.length + ' player' + (names.length !== 1 ? 's' : ''));
+    }
+  }
+
+  /* ── Gun logic ────────────────────────────────────────────────────── */
+  function enterRoom() {
+    localStorage.setItem('pt_name', myName);
+    localStorage.setItem('pt_room', roomCode);
+
+    hide('setup-screen');
+    show('game-screen');
+    document.getElementById('display-code').textContent = roomCode;
+    setStatus(false, 'Connecting…');
+
+    var ns = 'pushup_tracker_v1_' + roomCode;
+    roomRef = gun.get(ns).get('players');
+
+    // Register myself (only sets if not present)
+    roomRef.get(myName).once(function (val) {
+      if (val === null || val === undefined) {
+        roomRef.get(myName).put(0);
+      }
+    });
+
+    // Subscribe to all player counts
+    roomRef.map().on(function (count, name) {
+      if (!name || name === '_' || typeof name !== 'string') return;
+      if (count === null || count === undefined) return;
+      var n = typeof count === 'number' ? count : 0;
+      var prev = state[name];
+      state[name] = n;
+
+      if (!connected) {
+        connected = true;
+        setStatus(true, 'Live · ' + Object.keys(state).length + ' player' + (Object.keys(state).length !== 1 ? 's' : ''));
       }
 
-      // 1. Check LocalStorage for saved preference
-      const savedTheme = localStorage.getItem("theme");
+      if (prev !== undefined && n > prev) bumpCount(name);
+      render();
+    });
 
-      // 2. Check System Preference if no local storage
-      const prefersDark =
-        window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches;
+    // Offline fallback
+    setTimeout(function () {
+      if (!connected) setStatus(false, 'Offline — changes will sync when reconnected');
+    }, 6000);
+  }
 
-      // Apply theme on load
-      if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
-        body.classList.add("dark");
-        updateIcons(true);
-      } else {
-        updateIcons(false);
-      }
+  /* ── Actions ──────────────────────────────────────────────────────── */
+  function addToAll() {
+    var names = Object.keys(state);
+    if (names.length === 0) return;
+    names.forEach(function (name) {
+      var next = (state[name] || 0) + 1;
+      state[name] = next;
+      roomRef.get(name).put(next);
+    });
+    render();
+    // Quick haptic on mobile
+    if (navigator.vibrate) navigator.vibrate(30);
+  }
 
-      // Toggle Event Listener
-      toggleButton.addEventListener("click", () => {
-        body.classList.toggle("dark");
-        const isDark = body.classList.contains("dark");
+  function removeOne(name) {
+    if (!state.hasOwnProperty(name)) return;
+    var cur = state[name] || 0;
+    if (cur <= 0) return;
+    var next = cur - 1;
+    state[name] = next;
+    roomRef.get(name).put(next);
+    render();
+  }
 
-        // Save preference
-        localStorage.setItem("theme", isDark ? "dark" : "light");
+  /* ── Event wiring ─────────────────────────────────────────────────── */
+  document.getElementById('create-btn').addEventListener('click', function () {
+    var n = cleanName(document.getElementById('create-name').value);
+    if (!n) { document.getElementById('create-name').focus(); return; }
+    myName   = n;
+    roomCode = genCode();
+    enterRoom();
+  });
 
-        // Update Icon
-        updateIcons(isDark);
-      });
-    </script>
-  </body>
+  document.getElementById('join-btn').addEventListener('click', function () {
+    var n    = cleanName(document.getElementById('join-name').value);
+    var code = document.getElementById('join-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!n)    { document.getElementById('join-name').focus(); return; }
+    if (!code || code.length < 4) { document.getElementById('join-code').focus(); return; }
+    myName   = n;
+    roomCode = code;
+    enterRoom();
+  });
+
+  document.getElementById('join-code').addEventListener('input', function () {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+
+  document.getElementById('add-all-btn').addEventListener('click', addToAll);
+
+  // Event delegation for minus buttons
+  document.getElementById('players-list').addEventListener('click', function (e) {
+    var btn = e.target.closest('.btn-minus');
+    if (!btn || btn.disabled) return;
+    removeOne(btn.dataset.player);
+  });
+
+  document.getElementById('copy-btn').addEventListener('click', function () {
+    var btn = this;
+    var fallback = function() {
+      var ta = document.createElement('textarea');
+      ta.value = roomCode;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    };
+    try {
+      navigator.clipboard.writeText(roomCode).then(function() {
+        btn.textContent = '✓ Copied!';
+        setTimeout(function() { btn.textContent = 'Copy code'; }, 2000);
+      }).catch(fallback);
+    } catch(e) { fallback(); }
+    btn.textContent = '✓ Copied!';
+    setTimeout(function() { btn.textContent = 'Copy code'; }, 2000);
+  });
+
+  document.getElementById('leave-btn').addEventListener('click', function () {
+    localStorage.removeItem('pt_name');
+    localStorage.removeItem('pt_room');
+    roomRef  = null;
+    state    = {};
+    connected = false;
+    show('setup-screen');
+    hide('game-screen');
+  });
+
+  // Enter-key support
+  document.getElementById('create-name').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('create-btn').click();
+  });
+  document.getElementById('join-name').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('join-code').focus();
+  });
+  document.getElementById('join-code').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('join-btn').click();
+  });
+
+  /* ── Auto-restore session ─────────────────────────────────────────── */
+  var sn = localStorage.getItem('pt_name');
+  var sr = localStorage.getItem('pt_room');
+  if (sn && sr) {
+    myName   = sn;
+    roomCode = sr;
+    enterRoom();
+  }
+})();
+</script>
+</body>
 </html>
