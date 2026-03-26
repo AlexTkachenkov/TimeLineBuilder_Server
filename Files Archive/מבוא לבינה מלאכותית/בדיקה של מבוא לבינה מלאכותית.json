@@ -1,0 +1,66 @@
+{
+  "title": "היסטוריה מקוצרת - ההתפתחות",
+  "subtitle": "לאחר תקופות של אכזבה, הבינה המלאכותית עברה מהפכות מדעיות שהפכו אותה לדיסציפלינה בשלה.",
+  "nodes": [
+    {
+      "id": "node_70s",
+      "type": "event",
+      "side": "right",
+      "title": "התפתחות מערכות מבוססות ידע",
+      "date": "שנות ה-70",
+      "content": "",
+      "isSub": false,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "node_1980",
+      "type": "event",
+      "side": "left",
+      "title": "AI נכנסת לתעשייה - מערכות מומחה",
+      "date": "1980",
+      "content": "",
+      "isSub": false,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "node_1987",
+      "type": "event",
+      "side": "right",
+      "title": "<div>AI הופך למדע מסודר :</div>",
+      "date": "1987",
+      "content": "<div>התקדמות ברשתות נוירונים וכריית מידע</div>",
+      "isSub": false,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "node_1988",
+      "type": "event",
+      "side": "left",
+      "title": "שילוב הסתברויות וקבלת החלטות לטיפול באי-ודאות",
+      "date": "1988",
+      "content": "",
+      "isSub": false,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    },
+    {
+      "id": "node_1995",
+      "type": "event",
+      "side": "right",
+      "title": "<div>פיתוח סוכנים נבונים, שימוש באינטרנט</div>",
+      "date": "1995",
+      "content": "<div>planning - בחוסר ודאות</div>",
+      "isSub": false,
+      "titleDir": "auto",
+      "contentDir": "auto",
+      "dateDir": "auto"
+    }
+  ]
+}
