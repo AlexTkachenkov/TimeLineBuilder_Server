@@ -258,7 +258,7 @@
     </div>
 
     <p style="color:var(--muted);font-size:0.72rem;text-align:center;margin-top:1.25rem;line-height:1.6;">
-      Syncs in real-time via Firebase · needs internet access
+      Syncs in real-time via Gun.js · needs internet access
     </p>
   </div>
 
@@ -300,12 +300,11 @@
   'use strict';
 
   /* ── Gun.js setup ─────────────────────────────────────────────────── */
-  // Using multiple public community relays for better reliability
-  // If one is offline, Gun will automatically try the next one.
+  // Using multiple active public test relays to ensure peers can find each other.
   var gun = Gun([
-    'https://peer.wallie.io/gun',
-    'https://relay.peer.ooo/gun',
-    'https://gun-manhattan.herokuapp.com/gun'
+    'https://gun-vue.glitch.me/gun',
+    'https://maddening-stone-gem.glitch.me/gun',
+    'https://relay.peer.ooo/gun'
   ]);
 
   var myName   = '';
@@ -418,21 +417,24 @@
     document.getElementById('display-code').textContent = roomCode;
     setStatus(false, 'Connecting…');
 
-    // Use a unique namespace to avoid collisions with old tests
-    var ns = 'pushup_tracker_v3_' + roomCode;
+    // Use a unique namespace version to avoid colliding with previous tests
+    var ns = 'pushup_tracker_v4_' + roomCode;
     roomRef = gun.get(ns).get('players');
 
-    // Register myself (only sets if not present locally)
-    roomRef.get(myName).once(function (val) {
+    // Register myself (Gun syncs much better when using objects instead of primitives)
+    roomRef.get(myName).get('count').once(function (val) {
       if (val === null || val === undefined) {
-        roomRef.get(myName).put(0);
+        roomRef.get(myName).get('count').put(0);
       }
     });
 
-    // Subscribe to all player counts in this room
+    // Subscribe to all player objects in this room
     roomRef.map().on(function (data, name) {
+      // Gun filters: ensure it's valid data and not a meta object
       if (!name || name === '_' || typeof name !== 'string') return;
-      var count = typeof data === 'number' ? data : parseInt(data, 10);
+      if (!data || typeof data !== 'object') return; 
+
+      var count = parseInt(data.count, 10);
       if (isNaN(count)) count = 0;
 
       state[name] = count;
@@ -460,7 +462,7 @@
     names.forEach(function (name) {
       var next = (state[name] || 0) + 1;
       state[name] = next; // Update locally first for immediate feedback
-      roomRef.get(name).put(next); // Sync to network
+      roomRef.get(name).get('count').put(next); // Sync node properly
       updatePlayerDOM(name, next);
     });
     
@@ -475,7 +477,7 @@
     
     var next = cur - 1;
     state[name] = next;
-    roomRef.get(name).put(next);
+    roomRef.get(name).get('count').put(next); // Sync node properly
     updatePlayerDOM(name, next);
   }
 
