@@ -330,7 +330,7 @@
   }
 
   /* ── UI helpers ───────────────────────────────────────────────────── */
-  function show(id)  { document.getElementById(id).style.display = ''; }
+  function show(id)  { document.getElementById(id).style.display = 'block'; }
   function hide(id)  { document.getElementById(id).style.display = 'none'; }
 
   function setStatus(live, text) {
@@ -527,14 +527,7 @@
     if (e.key === 'Enter') document.getElementById('join-btn').click();
   });
 
-  /* ── Auto-restore session ─────────────────────────────────────────── */
-  var sn = localStorage.getItem('pt_name');
-  var sr = localStorage.getItem('pt_room');
-  if (sn && sr) {
-    myName   = sn;
-    roomCode = sr;
-    enterRoom();
-  }
+  /* no auto-restore — always start fresh */
 })();
 </script>
 </body>
