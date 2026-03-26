@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+
   <style>
     :root {
       --bg:      #0a0a0a;
@@ -293,58 +295,24 @@
 
 </div><!-- /wrap -->
 
-<script type="module">
-  // Using Firebase v11 for reliable cross-device synchronization
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-  import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-  import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+<script>
+(function () {
+  'use strict';
 
-  // Replace this with your actual Firebase configuration
-  let firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT",
-      storageBucket: "YOUR_PROJECT.firebasestorage.app",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-  };
+  /* ── Gun.js setup ─────────────────────────────────────────────────── */
+  // Using multiple public community relays for better reliability
+  // If one is offline, Gun will automatically try the next one.
+  var gun = Gun([
+    'https://peer.wallie.io/gun',
+    'https://relay.peer.ooo/gun',
+    'https://gun-manhattan.herokuapp.com/gun'
+  ]);
 
-  if (typeof __firebase_config !== 'undefined') {
-      firebaseConfig = JSON.parse(__firebase_config);
-  }
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const appId = typeof __app_id !== 'undefined' ? __app_id : 'pushup-tracker-123';
-
-  let myName   = '';
-  let roomCode = '';
-  let state    = {}; 
-  let connected = false;
-  let currentUser = null;
-  let unsubscribeListener = null;
-
-  /* ── Authentication ───────────────────────────────────────────────── */
-  async function initAuth() {
-    if (currentUser) return;
-    try {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
-      }
-      return new Promise((resolve) => {
-        onAuthStateChanged(auth, user => {
-          currentUser = user;
-          if (user) resolve(user);
-        });
-      });
-    } catch (e) {
-      setStatus(false, 'Auth failed. Check config.');
-      console.error(e);
-    }
-  }
+  var myName   = '';
+  var roomCode = '';
+  var roomRef  = null;
+  var state    = {};   // { playerName: count }
+  var connected = false;
 
   /* ── Helpers ──────────────────────────────────────────────────────── */
   function genCode() {
@@ -375,14 +343,8 @@
     span.textContent = text;
   }
 
-  function bumpCount(name) {
-    var el = document.querySelector('[data-name="' + CSS.escape(name) + '"] .player-count');
-    if (!el) return;
-    el.classList.add('bump');
-    setTimeout(function () { el.classList.remove('bump'); }, 150);
-  }
-
   /* ── Render ───────────────────────────────────────────────────────── */
+  // Full render (only used when a new player joins so buttons don't jump around)
   function render() {
     var list   = document.getElementById('players-list');
     var names  = Object.keys(state);
@@ -392,9 +354,8 @@
       return;
     }
 
+    // Sort alphabetically to maintain stable button positions
     names.sort(function (a, b) {
-      var d = (state[b] || 0) - (state[a] || 0);
-      if (d !== 0) return d;
       if (a === myName) return -1;
       if (b === myName) return 1;
       return a.localeCompare(b);
@@ -417,90 +378,105 @@
     }).join('');
   }
 
-  /* ── Firebase DB logic ────────────────────────────────────────────── */
-  async function enterRoom() {
+  // Targeted update (preserves animations and doesn't wipe the DOM)
+  function updatePlayerDOM(name, count) {
+    var safe = esc(name);
+    var el = document.querySelector('[data-name="' + CSS.escape(name) + '"]');
+    
+    // If player element doesn't exist yet, we must do a full render to add them
+    if (!el) {
+      render();
+      el = document.querySelector('[data-name="' + CSS.escape(name) + '"]');
+      if (!el) return;
+    }
+
+    var countEl = el.querySelector('.player-count');
+    var btnMinus = el.querySelector('.btn-minus');
+    
+    if (parseInt(countEl.textContent, 10) !== count) {
+      countEl.textContent = count;
+      
+      if (count === 0) {
+        countEl.classList.add('zero');
+        btnMinus.disabled = true;
+      } else {
+        countEl.classList.remove('zero');
+        btnMinus.disabled = false;
+      }
+
+      // Trigger bump animation safely
+      countEl.classList.remove('bump');
+      void countEl.offsetWidth; // Force a browser reflow
+      countEl.classList.add('bump');
+    }
+  }
+
+  /* ── Gun logic ────────────────────────────────────────────────────── */
+  function enterRoom() {
     hide('setup-screen');
     show('game-screen');
     document.getElementById('display-code').textContent = roomCode;
     setStatus(false, 'Connecting…');
 
-    await initAuth();
-    if (!currentUser) return;
+    // Use a unique namespace to avoid collisions with old tests
+    var ns = 'pushup_tracker_v3_' + roomCode;
+    roomRef = gun.get(ns).get('players');
 
-    // Secure path specific to this room
-    const collectionName = `room_${roomCode}`;
-    const playerRef = doc(db, 'artifacts', appId, 'public', 'data', collectionName, myName);
+    // Register myself (only sets if not present locally)
+    roomRef.get(myName).once(function (val) {
+      if (val === null || val === undefined) {
+        roomRef.get(myName).put(0);
+      }
+    });
 
-    // Register myself if I don't exist yet
-    const docSnap = await getDoc(playerRef);
-    if (!docSnap.exists()) {
-      await setDoc(playerRef, { count: 0 });
-    }
+    // Subscribe to all player counts in this room
+    roomRef.map().on(function (data, name) {
+      if (!name || name === '_' || typeof name !== 'string') return;
+      var count = typeof data === 'number' ? data : parseInt(data, 10);
+      if (isNaN(count)) count = 0;
 
-    // Subscribe to the whole room's changes
-    const roomCollection = collection(db, 'artifacts', appId, 'public', 'data', collectionName);
-    
-    if (unsubscribeListener) unsubscribeListener();
-
-    unsubscribeListener = onSnapshot(roomCollection, (snapshot) => {
-      let prevState = { ...state };
-      state = {};
-      
-      snapshot.forEach(docSnap => {
-        state[docSnap.id] = docSnap.data().count;
-      });
+      state[name] = count;
 
       if (!connected) {
         connected = true;
       }
       setStatus(true, 'Live · ' + Object.keys(state).length + ' player' + (Object.keys(state).length !== 1 ? 's' : ''));
-      
-      render(); // Render DOM updates first
 
-      // Apply bump animations to elements that just updated
-      snapshot.forEach(docSnap => {
-        const val = docSnap.data().count;
-        if (prevState[docSnap.id] !== undefined && val > prevState[docSnap.id]) {
-          requestAnimationFrame(() => bumpCount(docSnap.id));
-        }
-      });
-
-    }, (error) => {
-      console.error("Firebase Sync Error", error);
-      setStatus(false, 'Connection Error');
+      // Update the specific UI element
+      updatePlayerDOM(name, count);
     });
+
+    // Offline fallback visual indicator
+    setTimeout(function () {
+      if (!connected) setStatus(false, 'Waiting for network peers...');
+    }, 5000);
   }
 
   /* ── Actions ──────────────────────────────────────────────────────── */
-  async function addToAll() {
-    if (!currentUser) return;
+  function addToAll() {
     var names = Object.keys(state);
     if (names.length === 0) return;
-
-    const collectionName = `room_${roomCode}`;
     
-    // Update everyone in parallel
-    const updates = names.map(name => {
-      const next = (state[name] || 0) + 1;
-      const playerRef = doc(db, 'artifacts', appId, 'public', 'data', collectionName, name);
-      return updateDoc(playerRef, { count: next });
+    names.forEach(function (name) {
+      var next = (state[name] || 0) + 1;
+      state[name] = next; // Update locally first for immediate feedback
+      roomRef.get(name).put(next); // Sync to network
+      updatePlayerDOM(name, next);
     });
-
-    await Promise.all(updates);
-
+    
     // Quick haptic on mobile
     if (navigator.vibrate) navigator.vibrate(30);
   }
 
-  async function removeOne(name) {
-    if (!currentUser || !state.hasOwnProperty(name)) return;
+  function removeOne(name) {
+    if (!state.hasOwnProperty(name)) return;
     var cur = state[name] || 0;
     if (cur <= 0) return;
     
-    const next = cur - 1;
-    const collectionName = `room_${roomCode}`;
-    const playerRef = doc(db, 'artifacts', appId, 'public', 'data', collectionName, name);
-    await updateDoc(playerRef, { count: next });
+    var next = cur - 1;
+    state[name] = next;
+    roomRef.get(name).put(next);
+    updatePlayerDOM(name, next);
   }
 
   /* ── Event wiring ─────────────────────────────────────────────────── */
@@ -556,10 +532,7 @@
   });
 
   document.getElementById('leave-btn').addEventListener('click', function () {
-    if (unsubscribeListener) {
-      unsubscribeListener();
-      unsubscribeListener = null;
-    }
+    roomRef  = null;
     state    = {};
     connected = false;
     show('setup-screen');
@@ -577,6 +550,7 @@
     if (e.key === 'Enter') document.getElementById('join-btn').click();
   });
 
+})();
 </script>
 </body>
 </html>
