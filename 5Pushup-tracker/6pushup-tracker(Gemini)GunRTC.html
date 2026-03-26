@@ -7,7 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   
+  <!-- Core Gun.js -->
   <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+  <!-- WebRTC Adapter: Allows direct browser-to-browser sync on local networks -->
+  <script src="https://cdn.jsdelivr.net/npm/gun/lib/webrtc.js"></script>
 
   <style>
     :root {
@@ -258,7 +261,7 @@
     </div>
 
     <p style="color:var(--muted);font-size:0.72rem;text-align:center;margin-top:1.25rem;line-height:1.6;">
-      Syncs in real-time via Gun.js · needs internet access
+      Peer-to-Peer Sync (Gun.js + WebRTC)
     </p>
   </div>
 
@@ -300,12 +303,19 @@
   'use strict';
 
   /* ── Gun.js setup ─────────────────────────────────────────────────── */
-  // Using multiple active public test relays to ensure peers can find each other.
-  var gun = Gun([
-    'https://gun-vue.glitch.me/gun',
-    'https://maddening-stone-gem.glitch.me/gun',
-    'https://relay.peer.ooo/gun'
-  ]);
+  // Combined list of stable community relays
+  var gun = Gun({
+    peers: [
+      'https://gun-manhattan.herokuapp.com/gun',
+      'https://relay.peer.ooo/gun',
+      'https://peer.wallie.io/gun'
+    ]
+  });
+
+  // Track network connectivity
+  gun.on('hi', function(peer) {
+    console.log('Connected to network peer:', peer.url);
+  });
 
   var myName   = '';
   var roomCode = '';
@@ -417,40 +427,41 @@
     document.getElementById('display-code').textContent = roomCode;
     setStatus(false, 'Connecting…');
 
-    // Use a unique namespace version to avoid colliding with previous tests
-    var ns = 'pushup_tracker_v4_' + roomCode;
-    roomRef = gun.get(ns).get('players');
+    // Use a unique namespace version to guarantee clean data on load
+    var ns = 'pt_room_v5_' + roomCode;
+    roomRef = gun.get(ns);
 
-    // Register myself (Gun syncs much better when using objects instead of primitives)
-    roomRef.get(myName).get('count').once(function (val) {
-      if (val === null || val === undefined) {
-        roomRef.get(myName).get('count').put(0);
-      }
-    });
+    // Subscribe to all objects inside this room
+    roomRef.map().on(function (data, key) {
+      // Filter out meta data and ensure the object has a name
+      if (!data || typeof data !== 'object' || !data.name) return;
 
-    // Subscribe to all player objects in this room
-    roomRef.map().on(function (data, name) {
-      // Gun filters: ensure it's valid data and not a meta object
-      if (!name || name === '_' || typeof name !== 'string') return;
-      if (!data || typeof data !== 'object') return; 
-
+      var name = data.name;
       var count = parseInt(data.count, 10);
       if (isNaN(count)) count = 0;
 
       state[name] = count;
 
-      if (!connected) {
-        connected = true;
-      }
+      if (!connected) connected = true;
       setStatus(true, 'Live · ' + Object.keys(state).length + ' player' + (Object.keys(state).length !== 1 ? 's' : ''));
 
       // Update the specific UI element
       updatePlayerDOM(name, count);
     });
 
+    // Announce my presence by pushing a FULL object into the room set
+    // This is the correct way to ensure Gun broadcasts the node across networks
+    roomRef.get(myName).put({
+      name: myName,
+      count: 0,
+      updatedAt: Gun.state() // Forces Gun to recognize this as new data
+    });
+
     // Offline fallback visual indicator
     setTimeout(function () {
-      if (!connected) setStatus(false, 'Waiting for network peers...');
+      if (Object.keys(state).length <= 1) {
+        setStatus(false, 'Waiting for network peers...');
+      }
     }, 5000);
   }
 
@@ -461,8 +472,15 @@
     
     names.forEach(function (name) {
       var next = (state[name] || 0) + 1;
-      state[name] = next; // Update locally first for immediate feedback
-      roomRef.get(name).get('count').put(next); // Sync node properly
+      state[name] = next; 
+      
+      // Update by pushing the full object back to guarantee network broadcast
+      roomRef.get(name).put({
+        name: name,
+        count: next,
+        updatedAt: Gun.state()
+      });
+      
       updatePlayerDOM(name, next);
     });
     
@@ -477,7 +495,13 @@
     
     var next = cur - 1;
     state[name] = next;
-    roomRef.get(name).get('count').put(next); // Sync node properly
+    
+    roomRef.get(name).put({
+      name: name,
+      count: next,
+      updatedAt: Gun.state()
+    });
+    
     updatePlayerDOM(name, next);
   }
 
