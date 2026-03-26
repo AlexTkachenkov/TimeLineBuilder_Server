@@ -6,7 +6,6 @@
   <title>💪 Pushup Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
   <style>
     :root {
       --bg:      #0a0a0a;
@@ -94,6 +93,7 @@
       white-space: nowrap;
     }
     .btn:active { opacity: 0.75; transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-red { background: var(--red); color: #fff; }
     .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.78rem; padding: 0.4rem 0.75rem; }
     .btn-full { width: 100%; margin-top: 0.75rem; }
@@ -239,7 +239,7 @@
     <div class="setup-card">
       <div class="setup-label">✦ Create a new room</div>
       <input id="create-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
-      <button class="btn btn-red btn-full" id="create-btn">Create Room</button>
+      <button class="btn btn-red btn-full" id="create-btn" disabled>Connecting...</button>
     </div>
 
     <div class="setup-or">or join existing</div>
@@ -251,12 +251,12 @@
         <input id="join-code" type="text" placeholder="Room code" maxlength="6"
                autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
                style="text-transform:uppercase;letter-spacing:0.15em;font-family:'Bebas Neue',sans-serif;font-size:1.1rem">
-        <button class="btn btn-red" id="join-btn">Join →</button>
+        <button class="btn btn-red" id="join-btn" disabled>Join →</button>
       </div>
     </div>
 
     <p style="color:var(--muted);font-size:0.72rem;text-align:center;margin-top:1.25rem;line-height:1.6;">
-      Syncs in real-time via Gun.js · needs internet access
+      Syncs in real-time via Firebase · Needs internet access
     </p>
   </div>
 
@@ -291,31 +291,49 @@
     </div>
   </div>
 
-</div><!-- /wrap -->
+</div>
 
-<script>
-(function () {
-  'use strict';
+<!-- FIREBASE LOGIC -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-  /* ── Gun.js setup ─────────────────────────────────────────────────── */
-  // Public relay nodes — add more or self-host for reliability
-  var gun = Gun([
-    'https://gun-manhattan.herokuapp.com/gun',
-    'https://gun-us.herokuapp.com/gun',
-    'https://gundb.io/gun',
-  ]);
+  // 1. FIREBASE CONFIGURATION
+  let firebaseConfig;
+  try {
+      // Automatic configuration when running inside this preview platform
+      firebaseConfig = JSON.parse(__firebase_config);
+  } catch (e) {
+      // ⚠️ REPLACE THIS BLOCK WITH YOUR OWN CONFIG WHEN HOSTING EXTERNALLY ⚠️
+      firebaseConfig = {
+        apiKey: "REMOVED",
+        authDomain: "pushuptrackerstrawberry.firebaseapp.com",
+        projectId: "pushuptrackerstrawberry",
+        storageBucket: "pushuptrackerstrawberry.firebasestorage.app",
+        messagingSenderId: "732662038484",
+        appId: "1:732662038484:web:74c8b42c4c8fd466d92041",
+        measurementId: "G-G1DR8RJ2Q3"
+      };
+  }
 
-  var myName   = '';
-  var roomCode = '';
-  var roomRef  = null;
-  var state    = {};   // { playerName: count }
-  var connected = false;
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'pushup-tracker-app';
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  let myName   = '';
+  let roomCode = '';
+  let state    = {};   // { playerName: count }
+  let connected = false;
+  let currentUser = null;
+  let unsubscribeRoom = null;
 
   /* ── Helpers ──────────────────────────────────────────────────────── */
   function genCode() {
-    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    var c = '';
-    for (var i = 0; i < 5; i++) c += chars[Math.floor(Math.random() * chars.length)];
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let c = '';
+    for (let i = 0; i < 5; i++) c += chars[Math.floor(Math.random() * chars.length)];
     return c;
   }
 
@@ -324,139 +342,187 @@
   }
 
   function esc(s) {
-    return String(s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   /* ── UI helpers ───────────────────────────────────────────────────── */
-  function show(id)  { document.getElementById(id).style.display = ''; }
+  function show(id)  { document.getElementById(id).style.display = 'block'; }
   function hide(id)  { document.getElementById(id).style.display = 'none'; }
 
   function setStatus(live, text) {
-    var dot  = document.getElementById('status-dot');
-    var span = document.getElementById('status-text');
+    const dot  = document.getElementById('status-dot');
+    const span = document.getElementById('status-text');
     dot.className  = 'dot' + (live ? ' pulse' : '');
     span.textContent = text;
   }
 
   function bumpCount(name) {
-    var el = document.querySelector('[data-name="' + CSS.escape(name) + '"] .player-count');
+    // Need to use CSS.escape to handle names with spaces/special characters
+    const safeSelector = CSS.escape(name);
+    const el = document.querySelector(`[data-name="${safeSelector}"] .player-count`);
     if (!el) return;
     el.classList.add('bump');
-    setTimeout(function () { el.classList.remove('bump'); }, 150);
+    setTimeout(() => el.classList.remove('bump'), 150);
   }
 
   /* ── Render ───────────────────────────────────────────────────────── */
   function render() {
-    var list   = document.getElementById('players-list');
-    var names  = Object.keys(state);
+    const list = document.getElementById('players-list');
+    const names = Object.keys(state);
 
     if (names.length === 0) {
       list.innerHTML = '<div class="empty">Waiting for players to join…<br><br>Share the room code with your crew.</div>';
       return;
     }
 
-    names.sort(function (a, b) {
-      var d = (state[b] || 0) - (state[a] || 0);
+    names.sort((a, b) => {
+      const d = (state[b] || 0) - (state[a] || 0);
       if (d !== 0) return d;
       if (a === myName) return -1;
       if (b === myName) return 1;
       return a.localeCompare(b);
     });
 
-    list.innerHTML = names.map(function (name) {
-      var count = state[name] || 0;
-      var isMe  = name === myName;
-      var safe  = esc(name);
-      return [
-        '<div class="player', (isMe ? ' is-me' : ''), '" data-name="', safe, '">',
-          '<div class="player-info">',
-            '<div class="player-name">', safe, '</div>',
-            isMe ? '<div class="player-you">you</div>' : '',
-          '</div>',
-          '<div class="player-count', (count === 0 ? ' zero' : ''), '">', count, '</div>',
-          '<button class="btn-minus" data-player="', safe, '"', (count === 0 ? ' disabled' : ''), '>−</button>',
-        '</div>',
-      ].join('');
+    list.innerHTML = names.map(name => {
+      const count = state[name] || 0;
+      const isMe  = name === myName;
+      const safe  = esc(name);
+      return `
+        <div class="player ${isMe ? 'is-me' : ''}" data-name="${safe}">
+          <div class="player-info">
+            <div class="player-name">${safe}</div>
+            ${isMe ? '<div class="player-you">you</div>' : ''}
+          </div>
+          <div class="player-count ${count === 0 ? 'zero' : ''}">${count}</div>
+          <button class="btn-minus" data-player="${safe}" ${count === 0 ? 'disabled' : ''}>−</button>
+        </div>
+      `;
     }).join('');
 
-    // Update player count in status
     if (connected) {
       setStatus(true, 'Live · ' + names.length + ' player' + (names.length !== 1 ? 's' : ''));
     }
   }
 
-  /* ── Gun logic ────────────────────────────────────────────────────── */
-  function enterRoom() {
-    localStorage.setItem('pt_name', myName);
-    localStorage.setItem('pt_room', roomCode);
+  /* ── Authentication & Connection ──────────────────────────────────── */
+  async function initAuth() {
+    try {
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
+      }
+    } catch (e) {
+      console.error("Auth error", e);
+    }
+  }
+
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if (user) {
+      const createBtn = document.getElementById('create-btn');
+      const joinBtn = document.getElementById('join-btn');
+      createBtn.disabled = false;
+      joinBtn.disabled = false;
+      createBtn.textContent = 'Create Room';
+    }
+  });
+
+  initAuth();
+
+  /* ── Firebase Room Logic ──────────────────────────────────────────── */
+  async function enterRoom() {
+    if (!currentUser) return;
 
     hide('setup-screen');
     show('game-screen');
     document.getElementById('display-code').textContent = roomCode;
     setStatus(false, 'Connecting…');
 
-    var ns = 'pushup_tracker_v1_' + roomCode;
-    roomRef = gun.get(ns).get('players');
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
 
-    // Register myself (only sets if not present)
-    roomRef.get(myName).once(function (val) {
-      if (val === null || val === undefined) {
-        roomRef.get(myName).put(0);
-      }
-    });
-
-    // Subscribe to all player counts
-    roomRef.map().on(function (count, name) {
-      if (!name || name === '_' || typeof name !== 'string') return;
-      if (count === null || count === undefined) return;
-      var n = typeof count === 'number' ? count : 0;
-      var prev = state[name];
-      state[name] = n;
-
-      if (!connected) {
-        connected = true;
-        setStatus(true, 'Live · ' + Object.keys(state).length + ' player' + (Object.keys(state).length !== 1 ? 's' : ''));
+    try {
+      // 1. Fetch current room to make sure we don't accidentally overwrite our own score to 0 if we re-join
+      const docSnap = await getDoc(roomRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (!data.players || data.players[myName] === undefined) {
+          // Add us to the room map
+          await setDoc(roomRef, { players: { [myName]: 0 } }, { merge: true });
+        }
+      } else {
+        // Room is brand new
+        await setDoc(roomRef, { players: { [myName]: 0 } }, { merge: true });
       }
 
-      if (prev !== undefined && n > prev) bumpCount(name);
-      render();
-    });
+      // 2. Listen to room changes in real-time
+      unsubscribeRoom = onSnapshot(roomRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          const oldState = state;
+          state = data.players || {};
+          
+          if (!connected) {
+            connected = true;
+          }
 
-    // Offline fallback
-    setTimeout(function () {
-      if (!connected) setStatus(false, 'Offline — changes will sync when reconnected');
-    }, 6000);
+          // Trigger animation bump for anyone whose count increased
+          for (const player in state) {
+            if (oldState[player] !== undefined && state[player] > oldState[player]) {
+              bumpCount(player);
+            }
+          }
+          render();
+        }
+      }, (error) => {
+        console.error("Snapshot error:", error);
+        setStatus(false, 'Disconnected');
+        connected = false;
+      });
+
+    } catch (err) {
+      console.error("Error joining room:", err);
+      setStatus(false, 'Error joining room');
+    }
   }
 
   /* ── Actions ──────────────────────────────────────────────────────── */
-  function addToAll() {
-    var names = Object.keys(state);
+  async function addToAll() {
+    if (!currentUser || !connected) return;
+    const names = Object.keys(state);
     if (names.length === 0) return;
-    names.forEach(function (name) {
-      var next = (state[name] || 0) + 1;
-      state[name] = next;
-      roomRef.get(name).put(next);
+
+    const updates = {};
+    names.forEach(name => {
+      updates[`players.${name}`] = increment(1); // Firebase handles the math securely
     });
-    render();
-    // Quick haptic on mobile
-    if (navigator.vibrate) navigator.vibrate(30);
+
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    try {
+      await updateDoc(roomRef, updates);
+      if (navigator.vibrate) navigator.vibrate(30);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  function removeOne(name) {
-    if (!state.hasOwnProperty(name)) return;
-    var cur = state[name] || 0;
-    if (cur <= 0) return;
-    var next = cur - 1;
-    state[name] = next;
-    roomRef.get(name).put(next);
-    render();
+  async function removeOne(name) {
+    if (!currentUser || !connected) return;
+    if (!state.hasOwnProperty(name) || state[name] <= 0) return;
+
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    try {
+      await updateDoc(roomRef, {
+        [`players.${name}`]: increment(-1)
+      });
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   /* ── Event wiring ─────────────────────────────────────────────────── */
   document.getElementById('create-btn').addEventListener('click', function () {
-    var n = cleanName(document.getElementById('create-name').value);
+    const n = cleanName(document.getElementById('create-name').value);
     if (!n) { document.getElementById('create-name').focus(); return; }
     myName   = n;
     roomCode = genCode();
@@ -464,8 +530,8 @@
   });
 
   document.getElementById('join-btn').addEventListener('click', function () {
-    var n    = cleanName(document.getElementById('join-name').value);
-    var code = document.getElementById('join-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const n    = cleanName(document.getElementById('join-name').value);
+    const code = document.getElementById('join-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!n)    { document.getElementById('join-name').focus(); return; }
     if (!code || code.length < 4) { document.getElementById('join-code').focus(); return; }
     myName   = n;
@@ -481,61 +547,46 @@
 
   // Event delegation for minus buttons
   document.getElementById('players-list').addEventListener('click', function (e) {
-    var btn = e.target.closest('.btn-minus');
+    const btn = e.target.closest('.btn-minus');
     if (!btn || btn.disabled) return;
     removeOne(btn.dataset.player);
   });
 
   document.getElementById('copy-btn').addEventListener('click', function () {
-    var btn = this;
-    var fallback = function() {
-      var ta = document.createElement('textarea');
-      ta.value = roomCode;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    };
-    try {
-      navigator.clipboard.writeText(roomCode).then(function() {
-        btn.textContent = '✓ Copied!';
-        setTimeout(function() { btn.textContent = 'Copy code'; }, 2000);
-      }).catch(fallback);
-    } catch(e) { fallback(); }
+    const btn = this;
+    const ta = document.createElement('textarea');
+    ta.value = roomCode;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    
     btn.textContent = '✓ Copied!';
-    setTimeout(function() { btn.textContent = 'Copy code'; }, 2000);
+    setTimeout(() => btn.textContent = 'Copy code', 2000);
   });
 
   document.getElementById('leave-btn').addEventListener('click', function () {
-    localStorage.removeItem('pt_name');
-    localStorage.removeItem('pt_room');
-    roomRef  = null;
-    state    = {};
+    if (unsubscribeRoom) {
+      unsubscribeRoom();
+      unsubscribeRoom = null;
+    }
+    roomCode = '';
+    state = {};
     connected = false;
     show('setup-screen');
     hide('game-screen');
   });
 
   // Enter-key support
-  document.getElementById('create-name').addEventListener('keydown', function (e) {
+  document.getElementById('create-name').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('create-btn').click();
   });
-  document.getElementById('join-name').addEventListener('keydown', function (e) {
+  document.getElementById('join-name').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('join-code').focus();
   });
-  document.getElementById('join-code').addEventListener('keydown', function (e) {
+  document.getElementById('join-code').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('join-btn').click();
   });
-
-  /* ── Auto-restore session ─────────────────────────────────────────── */
-  var sn = localStorage.getItem('pt_name');
-  var sr = localStorage.getItem('pt_room');
-  if (sn && sr) {
-    myName   = sn;
-    roomCode = sr;
-    enterRoom();
-  }
-})();
 </script>
 </body>
 </html>
