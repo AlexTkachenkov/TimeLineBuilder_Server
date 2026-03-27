@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💪 Pushup Tracker</title>
+
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+
+<style>
+body { font-family: sans-serif; background:#111; color:#fff; text-align:center; }
+button { padding:10px; margin:5px; }
+</style>
+</head>
+<body>
+
+<h1>💪 Pushup Tracker</h1>
+
+<div id="setup">
+  <input id="name" placeholder="Your name">
+  <button onclick="createRoom()">Create Room</button><br><br>
+  <input id="room" placeholder="Room code">
+  <button onclick="joinRoom()">Join Room</button>
+</div>
+
+<div id="game" style="display:none;">
+  <h2>Room: <span id="roomCode"></span></h2>
+  <button onclick="addAll()">+1 ALL</button>
+  <div id="players"></div>
+</div>
+
+<script>
+const gun = Gun({
+  peers: [
+    'https://gunjs.herokuapp.com/gun',
+    'https://gun-manhattan.herokuapp.com/gun'
+  ]
+});
+
+let roomRef;
+let myNode;
+let myId;
+let myName;
+let state = {}; // { id: {name, count} }
+
+function genCode() {
+  return Math.random().toString(36).substring(2,7).toUpperCase();
+}
+
+function createRoom() {
+  myName = document.getElementById('name').value.trim();
+  if (!myName) return;
+
+  const code = genCode();
+  enterRoom(code);
+}
+
+function joinRoom() {
+  myName = document.getElementById('name').value.trim();
+  const code = document.getElementById('room').value.trim().toUpperCase();
+
+  if (!myName || !code) return;
+
+  enterRoom(code);
+}
+
+function enterRoom(code) {
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  document.getElementById('roomCode').textContent = code;
+
+  roomRef = gun.get('room_' + code);
+
+  // create unique player node
+  myId = 'player_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+
+  myNode = gun.get(myId);
+
+  myNode.put({
+    id: myId,
+    name: myName,
+    count: 0
+  });
+
+  roomRef.set(myNode);
+
+  // listen to players
+  roomRef.map().on((data) => {
+    if (!data || !data.id) return;
+
+    const id = data.id;
+    const name = data.name || 'anon';
+    const count = parseInt(data.count) || 0;
+
+    state[id] = { name, count };
+
+    render();
+  });
+}
+
+function render() {
+  const div = document.getElementById('players');
+  div.innerHTML = '';
+
+  Object.entries(state).forEach(([id, p]) => {
+    const el = document.createElement('div');
+
+    el.innerHTML = `
+      <b>${p.name}</b> : ${p.count}
+      <button onclick="minus('${id}')">-</button>
+    `;
+
+    div.appendChild(el);
+  });
+}
+
+function addAll() {
+  Object.keys(state).forEach(id => {
+    const p = state[id];
+    gun.get(id).get('count').put(p.count + 1);
+  });
+}
+
+function minus(id) {
+  const p = state[id];
+  if (p.count <= 0) return;
+
+  gun.get(id).get('count').put(p.count - 1);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>💪 Pushup Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+
+  <style>
+    :root {
+      --bg:      #0a0a0a;
+      --surface: #141414;
+      --card:    #1c1c1c;
+      --border:  #2a2a2a;
+      --red:     #ff3b3b;
+      --green:   #00e676;
+      --text:    #f0f0f0;
+      --muted:   #555;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      padding: 1rem;
+      background-image: radial-gradient(circle at 80% 10%, rgba(255,59,59,0.06) 0%, transparent 50%);
+    }
+    .wrap { max-width: 440px; margin: 0 auto; }
+
+    /* ── Header ── */
+    .hdr { padding: 1.5rem 0 0.5rem; display: flex; align-items: flex-end; gap: 0.5rem; }
+    .hdr-title { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; letter-spacing: 0.04em; line-height: 1; }
+    .hdr-sub { color: var(--muted); font-size: 0.8rem; line-height: 1.4; padding-bottom: 0.3rem; }
+
+    /* ── Setup ── */
+    .setup-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.4rem;
+      margin-top: 1.25rem;
+    }
+    .setup-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .setup-or {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin: 1.1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .setup-or::before, .setup-or::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ── Inputs ── */
+    input {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 0.8rem 1rem;
+      font-size: 1rem;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: var(--red); }
+    input::placeholder { color: var(--muted); }
+    .row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+
+    /* ── Buttons ── */
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 0.8rem 1.1rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: opacity 0.1s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { opacity: 0.75; transform: scale(0.97); }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.78rem; padding: 0.4rem 0.75rem; }
+    .btn-full { width: 100%; margin-top: 0.75rem; }
+
+    .btn-shout {
+      width: 100%;
+      padding: 1.15rem;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.08em;
+      border-radius: 16px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 28px rgba(255,59,59,0.35);
+      transition: transform 0.08s, box-shadow 0.08s;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+    }
+    .btn-shout:active { transform: scale(0.96); box-shadow: 0 2px 10px rgba(255,59,59,0.2); }
+
+    /* ── Room bar ── */
+    .room-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.7rem 1rem;
+      margin-bottom: 1.1rem;
+    }
+    .room-label { font-size: 0.72rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+    .room-code {
+      flex: 1;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.2em;
+      color: var(--red);
+    }
+
+    /* ── Status ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.pulse {
+      background: var(--green);
+      animation: pulse 1.4s infinite;
+    }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,230,118,0.5); } 50% { box-shadow: 0 0 0 5px rgba(0,230,118,0); } }
+
+    /* ── Player list ── */
+    .players { display: flex; flex-direction: column; gap: 0.65rem; margin-bottom: 1.25rem; }
+    .player {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.9rem 1rem;
+      transition: border-color 0.2s;
+    }
+    .player.is-me { border-color: rgba(255,59,59,0.35); }
+    .player-info { flex: 1; min-width: 0; }
+    .player-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .player-you {
+      display: inline-block;
+      font-size: 0.58rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--red);
+      background: rgba(255,59,59,0.12);
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-top: 2px;
+    }
+    .player-count {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.4rem;
+      line-height: 1;
+      min-width: 3rem;
+      text-align: center;
+      color: var(--red);
+      transition: transform 0.12s;
+    }
+    .player-count.zero { color: var(--green); }
+    .player-count.bump { transform: scale(1.3); }
+
+    .btn-minus {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 1.6rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.1s, transform 0.08s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .btn-minus:not(:disabled):active { background: #2a2a2a; transform: scale(0.9); }
+    .btn-minus:disabled { opacity: 0.2; cursor: not-allowed; }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; font-size: 0.875rem; line-height: 1.6; }
+
+    /* ── Footer ── */
+    .footer { text-align: center; padding-bottom: 1.5rem; }
+    .footer a { color: var(--muted); font-size: 0.78rem; cursor: pointer; text-decoration: underline; }
+
+    /* ── Screen toggle ── */
+    #game-screen { display: none; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ════ SETUP SCREEN ════ -->
+  <div id="setup-screen">
+    <div class="hdr">
+      <span class="hdr-title">💪 PUSHUP<br>TRACKER</span>
+    </div>
+    <p style="color:var(--muted);font-size:0.82rem;margin-top:0.4rem;">The professor said it again, didn't they?</p>
+
+    <div class="setup-card">
+      <div class="setup-label">✦ Create a new room</div>
+      <input id="create-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="btn btn-red btn-full" id="create-btn">Create Room</button>
+    </div>
+
+    <div class="setup-or">or join existing</div>
+
+    <div class="setup-card">
+      <div class="setup-label">🔗 Join a room</div>
+      <input id="join-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
+      <div class="row">
+        <input id="join-code" type="text" placeholder="Room code" maxlength="6"
+               autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+               style="text-transform:uppercase;letter-spacing:0.15em;font-family:'Bebas Neue',sans-serif;font-size:1.1rem">
+        <button class="btn btn-red" id="join-btn">Join →</button>
+      </div>
+    </div>
+
+    <p style="color:var(--muted);font-size:0.72rem;text-align:center;margin-top:1.25rem;line-height:1.6;">
+      Syncs in real-time via Firebase · needs internet access
+    </p>
+  </div>
+
+  <!-- ════ GAME SCREEN ════ -->
+  <div id="game-screen">
+    <div class="hdr" style="padding-top:0.75rem;">
+      <span class="hdr-title">💪 PUSHUP<br>TRACKER</span>
+    </div>
+
+    <div class="status-bar" style="margin-top:0.75rem;">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">Connecting…</span>
+    </div>
+
+    <div class="room-bar">
+      <span class="room-label">Room</span>
+      <span class="room-code" id="display-code"></span>
+      <button class="btn btn-ghost" id="copy-btn">Copy code</button>
+    </div>
+
+    <button class="btn-shout" id="add-all-btn">
+      🔔 PROFESSOR SAID IT — +1 ALL
+    </button>
+
+    <div class="players" id="players-list">
+      <div class="empty">Waiting for players to join…<br><br>
+        Share the room code with your crew.</div>
+    </div>
+
+    <div class="footer">
+      <a id="leave-btn">Leave room</a>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── Gun.js setup ─────────────────────────────────────────────────── */
+  // Using multiple public community relays for better reliability
+  // If one is offline, Gun will automatically try the next one.
+  var gun = Gun([
+    'https://peer.wallie.io/gun',
+    'https://relay.peer.ooo/gun',
+    'https://gun-manhattan.herokuapp.com/gun'
+  ]);
+
+  var myName   = '';
+  var roomCode = '';
+  var roomRef  = null;
+  var state    = {};   // { playerName: count }
+  var connected = false;
+
+  /* ── Helpers ──────────────────────────────────────────────────────── */
+  function genCode() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var c = '';
+    for (var i = 0; i < 5; i++) c += chars[Math.floor(Math.random() * chars.length)];
+    return c;
+  }
+
+  function cleanName(n) {
+    return n.replace(/[^\w\s\-\.]/g, '').trim().slice(0, 20);
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── UI helpers ───────────────────────────────────────────────────── */
+  function show(id)  { document.getElementById(id).style.display = 'block'; }
+  function hide(id)  { document.getElementById(id).style.display = 'none'; }
+
+  function setStatus(live, text) {
+    var dot  = document.getElementById('status-dot');
+    var span = document.getElementById('status-text');
+    dot.className  = 'dot' + (live ? ' pulse' : '');
+    span.textContent = text;
+  }
+
+  /* ── Render ───────────────────────────────────────────────────────── */
+  // Full render (only used when a new player joins so buttons don't jump around)
+  function render() {
+    var list   = document.getElementById('players-list');
+    var names  = Object.keys(state);
+
+    if (names.length === 0) {
+      list.innerHTML = '<div class="empty">Waiting for players to join…<br><br>Share the room code with your crew.</div>';
+      return;
+    }
+
+    // Sort alphabetically to maintain stable button positions
+    names.sort(function (a, b) {
+      if (a === myName) return -1;
+      if (b === myName) return 1;
+      return a.localeCompare(b);
+    });
+
+    list.innerHTML = names.map(function (name) {
+      var count = state[name] || 0;
+      var isMe  = name === myName;
+      var safe  = esc(name);
+      return [
+        '<div class="player', (isMe ? ' is-me' : ''), '" data-name="', safe, '">',
+          '<div class="player-info">',
+            '<div class="player-name">', safe, '</div>',
+            isMe ? '<div class="player-you">you</div>' : '',
+          '</div>',
+          '<div class="player-count', (count === 0 ? ' zero' : ''), '">', count, '</div>',
+          '<button class="btn-minus" data-player="', safe, '"', (count === 0 ? ' disabled' : ''), '>−</button>',
+        '</div>',
+      ].join('');
+    }).join('');
+  }
+
+  // Targeted update (preserves animations and doesn't wipe the DOM)
+  function updatePlayerDOM(name, count) {
+    var safe = esc(name);
+    var el = document.querySelector('[data-name="' + CSS.escape(name) + '"]');
+    
+    // If player element doesn't exist yet, we must do a full render to add them
+    if (!el) {
+      render();
+      el = document.querySelector('[data-name="' + CSS.escape(name) + '"]');
+      if (!el) return;
+    }
+
+    var countEl = el.querySelector('.player-count');
+    var btnMinus = el.querySelector('.btn-minus');
+    
+    if (parseInt(countEl.textContent, 10) !== count) {
+      countEl.textContent = count;
+      
+      if (count === 0) {
+        countEl.classList.add('zero');
+        btnMinus.disabled = true;
+      } else {
+        countEl.classList.remove('zero');
+        btnMinus.disabled = false;
+      }
+
+      // Trigger bump animation safely
+      countEl.classList.remove('bump');
+      void countEl.offsetWidth; // Force a browser reflow
+      countEl.classList.add('bump');
+    }
+  }
+
+  /* ── Gun logic ────────────────────────────────────────────────────── */
+  function enterRoom() {
+    hide('setup-screen');
+    show('game-screen');
+    document.getElementById('display-code').textContent = roomCode;
+    setStatus(false, 'Connecting…');
+
+    // Use a unique namespace to avoid collisions with old tests
+    var ns = 'pushup_tracker_v3_' + roomCode;
+    roomRef = gun.get(ns).get('players');
+
+    // Register myself (only sets if not present locally)
+    roomRef.get(myName).once(function (val) {
+      if (val === null || val === undefined) {
+        roomRef.get(myName).put(0);
+      }
+    });
+
+    // Subscribe to all player counts in this room
+    roomRef.map().on(function (data, name) {
+      if (!name || name === '_' || typeof name !== 'string') return;
+      var count = typeof data === 'number' ? data : parseInt(data, 10);
+      if (isNaN(count)) count = 0;
+
+      state[name] = count;
+
+      if (!connected) {
+        connected = true;
+      }
+      setStatus(true, 'Live · ' + Object.keys(state).length + ' player' + (Object.keys(state).length !== 1 ? 's' : ''));
+
+      // Update the specific UI element
+      updatePlayerDOM(name, count);
+    });
+
+    // Offline fallback visual indicator
+    setTimeout(function () {
+      if (!connected) setStatus(false, 'Waiting for network peers...');
+    }, 5000);
+  }
+
+  /* ── Actions ──────────────────────────────────────────────────────── */
+  function addToAll() {
+    var names = Object.keys(state);
+    if (names.length === 0) return;
+    
+    names.forEach(function (name) {
+      var next = (state[name] || 0) + 1;
+      state[name] = next; // Update locally first for immediate feedback
+      roomRef.get(name).put(next); // Sync to network
+      updatePlayerDOM(name, next);
+    });
+    
+    // Quick haptic on mobile
+    if (navigator.vibrate) navigator.vibrate(30);
+  }
+
+  function removeOne(name) {
+    if (!state.hasOwnProperty(name)) return;
+    var cur = state[name] || 0;
+    if (cur <= 0) return;
+    
+    var next = cur - 1;
+    state[name] = next;
+    roomRef.get(name).put(next);
+    updatePlayerDOM(name, next);
+  }
+
+  /* ── Event wiring ─────────────────────────────────────────────────── */
+  document.getElementById('create-btn').addEventListener('click', function () {
+    var n = cleanName(document.getElementById('create-name').value);
+    if (!n) { document.getElementById('create-name').focus(); return; }
+    myName   = n;
+    roomCode = genCode();
+    enterRoom();
+  });
+
+  document.getElementById('join-btn').addEventListener('click', function () {
+    var n    = cleanName(document.getElementById('join-name').value);
+    var code = document.getElementById('join-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!n)    { document.getElementById('join-name').focus(); return; }
+    if (!code || code.length < 4) { document.getElementById('join-code').focus(); return; }
+    myName   = n;
+    roomCode = code;
+    enterRoom();
+  });
+
+  document.getElementById('join-code').addEventListener('input', function () {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+
+  document.getElementById('add-all-btn').addEventListener('click', addToAll);
+
+  // Event delegation for minus buttons
+  document.getElementById('players-list').addEventListener('click', function (e) {
+    var btn = e.target.closest('.btn-minus');
+    if (!btn || btn.disabled) return;
+    removeOne(btn.dataset.player);
+  });
+
+  document.getElementById('copy-btn').addEventListener('click', function () {
+    var btn = this;
+    var fallback = function() {
+      var ta = document.createElement('textarea');
+      ta.value = roomCode;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    };
+    try {
+      navigator.clipboard.writeText(roomCode).then(function() {
+        btn.textContent = '✓ Copied!';
+        setTimeout(function() { btn.textContent = 'Copy code'; }, 2000);
+      }).catch(fallback);
+    } catch(e) { fallback(); }
+    btn.textContent = '✓ Copied!';
+    setTimeout(function() { btn.textContent = 'Copy code'; }, 2000);
+  });
+
+  document.getElementById('leave-btn').addEventListener('click', function () {
+    roomRef  = null;
+    state    = {};
+    connected = false;
+    show('setup-screen');
+    hide('game-screen');
+  });
+
+  // Enter-key support
+  document.getElementById('create-name').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('create-btn').click();
+  });
+  document.getElementById('join-name').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('join-code').focus();
+  });
+  document.getElementById('join-code').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('join-btn').click();
+  });
+
+})();
+</script>
+</body>
+</html>
