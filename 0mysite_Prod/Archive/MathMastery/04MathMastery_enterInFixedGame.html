@@ -412,12 +412,6 @@
                         type="number"
                         value={inputValue}
                         onChange={(e) => { if (!isPaused) setInputValue(e.target.value); }}
-                        onKeyDown={(e) => {
-                            if (e.key === ' ' || e.code === 'Space') {
-                                e.preventDefault();
-                                handleSubmit(e);
-                            }
-                        }}
                         readOnly={isPaused}
                         className={`w-full text-center text-4xl font-bold py-4 rounded-2xl border-4 outline-none transition-colors shadow-inner ${inputBorderColor} ${inputBgColor} text-slate-800 ${isPaused ? 'opacity-80' : ''}`}
                         placeholder="?"
@@ -428,11 +422,11 @@
                             <div className={`mt-6 w-full p-4 rounded-xl font-bold text-lg flex flex-col items-center gap-3 ${feedback === 'correct' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
                                 <span>{feedback === 'correct' ? 'Correct!' : `Incorrect! The answer is ${currentQuestion.answer}`}</span>
                                 <button type="submit" className={`px-6 py-2 rounded-lg transition-colors text-sm shadow-sm font-semibold ${feedback === 'correct' ? 'bg-emerald-200 hover:bg-emerald-300 text-emerald-900' : 'bg-red-200 hover:bg-red-300 text-red-900'}`}>
-                                    Press Enter, Space, or Click to Continue
+                                    Press Enter or Click to Continue
                                 </button>
                             </div>
                         ) : (
-                            <p className="text-slate-400 mt-6 text-sm w-full">Press <kbd className="px-2 py-1 bg-slate-100 rounded text-slate-600 font-mono text-xs border border-slate-200 shadow-sm">Enter</kbd> or <kbd className="px-2 py-1 bg-slate-100 rounded text-slate-600 font-mono text-xs border border-slate-200 shadow-sm">Space</kbd> to submit</p>
+                            <p className="text-slate-400 mt-6 text-sm w-full">Press <kbd className="px-2 py-1 bg-slate-100 rounded text-slate-600 font-mono text-xs border border-slate-200 shadow-sm">Enter</kbd> to submit</p>
                         )}
                     </form>
                     
