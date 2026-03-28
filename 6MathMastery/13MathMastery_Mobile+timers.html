@@ -64,6 +64,7 @@
 
             const [score, setScore] = useState(0);
             const [timeLeft, setTimeLeft] = useState(0);
+            const [timeElapsed, setTimeElapsed] = useState(0);
             const [currentQuestion, setCurrentQuestion] = useState(null);
             const [inputValue, setInputValue] = useState('');
             const [history, setHistory] = useState([]);
@@ -83,19 +84,22 @@
             // Timer Logic
             useEffect(() => {
                 let timer;
-                if (gameState === 'playing' && gameDurationType === 'time' && timeLeft > 0 && !isPaused) {
+                if (gameState === 'playing' && !isPaused) {
                     timer = setInterval(() => {
-                        setTimeLeft((prev) => {
-                            if (prev <= 1) {
-                                endGame();
-                                return 0;
-                            }
-                            return prev - 1;
-                        });
+                        setTimeElapsed((prev) => prev + 1);
+                        if (gameDurationType === 'time') {
+                            setTimeLeft((prev) => {
+                                if (prev <= 1) {
+                                    endGame();
+                                    return 0;
+                                }
+                                return prev - 1;
+                            });
+                        }
                     }, 1000);
                 }
                 return () => clearInterval(timer);
-            }, [gameState, timeLeft, gameDurationType, isPaused]);
+            }, [gameState, gameDurationType, isPaused]);
 
             const generateQuestion = () => {
                 if (mode === 'power') {
@@ -112,6 +116,7 @@
             const startGame = () => {
                 setScore(0);
                 if (gameDurationType === 'time') setTimeLeft(timeLimit);
+                setTimeElapsed(0);
                 setExercisesDone(0);
                 setHistory([]);
                 setFeedback(null);
@@ -336,6 +341,13 @@
                 if (gameDurationType === 'time') formatText = (timeLimit >= 60 ? `${timeLimit/60}m` : `${timeLimit}s`);
                 if (gameDurationType === 'ceiling') formatText = `${exerciseCeiling} Qs`;
 
+                const formatTime = (seconds) => {
+                    if (seconds < 60) return `${seconds}s`;
+                    const m = Math.floor(seconds / 60);
+                    const s = seconds % 60;
+                    return `${m}m ${s}s`;
+                };
+
                 return (
                 <div className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-full md:h-[85vh] md:max-h-[900px] md:flex-row">
                     
@@ -351,15 +363,21 @@
                             </div>
                             <p className="text-slate-400 text-[10px] md:text-xs uppercase tracking-widest font-bold mb-4 md:mb-6 opacity-80">Final Statistics</p>
 
-                            <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4 md:mb-6">
+                            <div className={`grid ${gameDurationType !== 'time' ? 'grid-cols-3' : 'grid-cols-2'} gap-2 md:gap-3 mb-4 md:mb-6`}>
                                 <div className="bg-slate-700/40 py-2 md:py-2.5 rounded-xl text-center border border-slate-600/30">
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Score</div>
-                                    <div className="text-2xl md:text-4xl font-black text-indigo-300 leading-tight">{score}</div>
+                                    <div className="text-xl md:text-3xl lg:text-4xl font-black text-indigo-300 leading-tight">{score}</div>
                                 </div>
                                 <div className="bg-slate-700/40 py-2 md:py-2.5 rounded-xl text-center border border-slate-600/30">
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Accuracy</div>
-                                    <div className="text-2xl md:text-4xl font-black text-emerald-400 leading-tight">{accuracy}%</div>
+                                    <div className="text-xl md:text-3xl lg:text-4xl font-black text-emerald-400 leading-tight">{accuracy}%</div>
                                 </div>
+                                {gameDurationType !== 'time' && (
+                                    <div className="bg-slate-700/40 py-2 md:py-2.5 rounded-xl text-center border border-slate-600/30">
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Time</div>
+                                        <div className="text-xl md:text-3xl lg:text-4xl font-black text-sky-300 leading-tight">{formatTime(timeElapsed)}</div>
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="text-[10px] md:text-xs font-bold text-slate-400 bg-slate-900/40 py-1.5 px-3 rounded-full inline-block mx-auto border border-slate-700/50">
