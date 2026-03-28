@@ -45,13 +45,14 @@
         const Settings = (props) => <Icon path='<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>' {...props} />;
         const Activity = (props) => <Icon path='<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>' {...props} />;
         const FastForward = (props) => <Icon path='<polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/>' {...props} />;
+        const Skull = (props) => <Icon path='<path d="m12.5 17-.5-1-.5 1h1z"/><path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v1a1 1 0 0 0 1 1h6z"/><path d="M12 2a7 7 0 0 0-7 7c0 1.5.5 3 1.5 4l.5 1c0 1 1 2 2 2h6c1 0 2-1 2-2l.5-1c1-1 1.5-2.5 1.5-4a7 7 0 0 0-7-7z"/><path d="M9 10a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/><path d="M15 10a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>' {...props} />;
 
         const generateBaseNumber = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
         function MathGame() {
             const [gameState, setGameState] = useState('menu'); 
             const [mode, setMode] = useState('power'); // 'power' or 'root'
-            const [gameDurationType, setGameDurationType] = useState('time');
+            const [gameDurationType, setGameDurationType] = useState('time'); // 'time', 'ceiling', 'survival'
             const [timeLimit, setTimeLimit] = useState(60);
             const [exerciseCeiling, setExerciseCeiling] = useState(10);
             const [exercisesDone, setExercisesDone] = useState(0);
@@ -102,9 +103,9 @@
                     const power = Math.floor(Math.random() * (powerMax - powerMin + 1)) + powerMin;
                     setCurrentQuestion({ type: 'power', base, power, answer: Math.pow(base, power) });
                 } else {
-                    // Root mode: base range effectively determines the range of the root results
-                    const rootVal = generateBaseNumber(baseMin, baseMax);
-                    setCurrentQuestion({ type: 'root', base: rootVal * rootVal, power: 2, answer: rootVal });
+                    const rootResult = generateBaseNumber(baseMin, baseMax);
+                    const rootType = Math.floor(Math.random() * (powerMax - powerMin + 1)) + powerMin;
+                    setCurrentQuestion({ type: 'root', base: Math.pow(rootResult, rootType), power: rootType, answer: rootResult });
                 }
             };
 
@@ -128,6 +129,7 @@
             const handlePowerMaxChange = (e) => { const val = parseInt(e.target.value) || 1; setPowerMax(val); if (val < powerMin) setPowerMin(val); };
 
             const handleSubmit = () => {
+                // Advance state if in Practice/Ceiling mode pause
                 if (isPaused && gameDurationType === 'ceiling') {
                     setIsPaused(false);
                     setFeedback(null);
@@ -137,18 +139,36 @@
                     setTimeout(() => gameContainerRef.current?.focus(), 0);
                     return;
                 }
+                
                 if (!currentQuestion) return;
+
                 const isSkip = !inputValue.trim();
                 const userAnswer = isSkip ? 'Skip' : parseInt(inputValue, 10);
                 const isCorrect = !isSkip && (userAnswer === currentQuestion.answer);
 
-                if (isCorrect) { setScore(s => s + 1); setFeedback('correct'); }
-                else { setFeedback(isSkip ? 'skip' : 'incorrect'); }
+                if (isCorrect) { 
+                    setScore(s => s + 1); 
+                    setFeedback('correct'); 
+                } else { 
+                    setFeedback(isSkip ? 'skip' : 'incorrect'); 
+                }
 
-                setHistory(prev => [...prev, { ...currentQuestion, userAnswer, isCorrect, isSkip, mode }]);
+                const newEntry = { ...currentQuestion, userAnswer, isCorrect, isSkip, mode };
+                setHistory(prev => [...prev, newEntry]);
 
-                if (gameDurationType === 'ceiling') setIsPaused(true);
-                else { setTimeout(() => setFeedback(null), 300); setInputValue(''); generateQuestion(); }
+                // Handle format specific endings
+                if (gameDurationType === 'survival' && !isCorrect) {
+                    setTimeout(() => endGame(), 300);
+                    return;
+                }
+
+                if (gameDurationType === 'ceiling') {
+                    setIsPaused(true);
+                } else {
+                    setTimeout(() => setFeedback(null), 300);
+                    setInputValue('');
+                    generateQuestion();
+                }
             };
 
             const handleNumpadInput = (val) => {
@@ -183,23 +203,26 @@
                             <div className="grid grid-cols-2 gap-2">
                                 <button className={`p-2 rounded-lg border-2 font-semibold text-xs transition-all ${mode === 'power' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`} onClick={() => setMode('power')}>Power</button>
                                 <button className={`p-2 rounded-lg border-2 font-semibold text-xs transition-all ${mode === 'root' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`} onClick={() => setMode('root')}>Root</button>
-                                <button disabled className="p-2 rounded-lg border-2 border-slate-100 bg-slate-50 text-slate-400 font-semibold text-xs cursor-not-allowed text-nowrap">Surv. Power</button>
-                                <button disabled className="p-2 rounded-lg border-2 border-slate-100 bg-slate-50 text-slate-400 font-semibold text-xs cursor-not-allowed text-nowrap">Surv. Root</button>
                             </div>
                         </section>
 
                         <section className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                             <h2 className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-1.5"><Timer className="w-4 h-4 text-indigo-500" /> Game Format</h2>
-                            <div className="flex gap-2 mb-3">
-                                <button className={`flex-1 p-2 rounded-lg border-2 font-semibold text-xs transition-all ${gameDurationType === 'time' ? 'border-indigo-600 bg-indigo-100 text-indigo-700 shadow-sm' : 'border-white bg-white text-slate-500 hover:border-slate-200 shadow-sm'}`} onClick={() => setGameDurationType('time')}>Time Limit</button>
-                                <button className={`flex-1 p-2 rounded-lg border-2 font-semibold text-xs transition-all ${gameDurationType === 'ceiling' ? 'border-indigo-600 bg-indigo-100 text-indigo-700 shadow-sm' : 'border-white bg-white text-slate-500 hover:border-slate-200 shadow-sm'}`} onClick={() => setGameDurationType('ceiling')}>Fixed Qs</button>
+                            <div className="flex gap-1.5 mb-3">
+                                <button className={`flex-1 p-2 rounded-lg border-2 font-semibold text-[10px] transition-all ${gameDurationType === 'time' ? 'border-indigo-600 bg-indigo-100 text-indigo-700' : 'border-white bg-white text-slate-500'}`} onClick={() => setGameDurationType('time')}>Time Limit</button>
+                                <button className={`flex-1 p-2 rounded-lg border-2 font-semibold text-[10px] transition-all ${gameDurationType === 'ceiling' ? 'border-indigo-600 bg-indigo-100 text-indigo-700' : 'border-white bg-white text-slate-500'}`} onClick={() => setGameDurationType('ceiling')}>Fixed Qs</button>
+                                <button className={`flex-1 p-2 rounded-lg border-2 font-semibold text-[10px] transition-all ${gameDurationType === 'survival' ? 'border-indigo-600 bg-indigo-100 text-indigo-700' : 'border-white bg-white text-slate-500'}`} onClick={() => setGameDurationType('survival')}>Survival</button>
                             </div>
                             <div className="flex gap-2">
-                                {gameDurationType === 'time' ? [30, 60, 120].map(time => (
+                                {gameDurationType === 'time' && [30, 60, 120].map(time => (
                                     <button key={time} onClick={() => setTimeLimit(time)} className={`flex-1 py-1.5 px-1 rounded-lg border-2 font-semibold text-xs transition-all ${timeLimit === time ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600'}`}>{time === 60 ? '1 min' : time === 120 ? '2 min' : '30 sec'}</button>
-                                )) : [10, 20, 50].map(amount => (
+                                ))}
+                                {gameDurationType === 'ceiling' && [10, 20, 50].map(amount => (
                                     <button key={amount} onClick={() => setExerciseCeiling(amount)} className={`flex-1 py-1.5 px-1 rounded-lg border-2 font-semibold text-xs transition-all ${exerciseCeiling === amount ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600'}`}>{amount} Qs</button>
                                 ))}
+                                {gameDurationType === 'survival' && (
+                                    <div className="text-[10px] text-slate-500 text-center w-full italic">Game ends on first mistake.</div>
+                                )}
                             </div>
                         </section>
 
@@ -207,19 +230,17 @@
                             <h2 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-1.5"><Settings className="w-4 h-4 text-indigo-500" /> Number Ranges</h2>
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs font-semibold text-slate-500 w-10">{mode === 'power' ? 'Base:' : 'Root:'}</span>
+                                    <span className="text-xs font-semibold text-slate-500 w-12">{mode === 'power' ? 'Base:' : 'Result:'}</span>
                                     <input type="number" min="1" value={baseMin} onChange={handleBaseMinChange} className="w-full py-1.5 px-2 text-sm font-bold text-center rounded border-2 border-slate-200 focus:border-indigo-500 outline-none"/>
                                     <span className="text-slate-400 text-xs font-bold px-1">to</span>
                                     <input type="number" min="1" value={baseMax} onChange={handleBaseMaxChange} className="w-full py-1.5 px-2 text-sm font-bold text-center rounded border-2 border-slate-200 focus:border-indigo-500 outline-none"/>
                                 </div>
-                                {mode === 'power' && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-semibold text-slate-500 w-10">Power:</span>
-                                        <input type="number" min="1" max="10" value={powerMin} onChange={handlePowerMinChange} className="w-full py-1.5 px-2 text-sm font-bold text-center rounded border-2 border-slate-200 focus:border-indigo-500 outline-none"/>
-                                        <span className="text-slate-400 text-xs font-bold px-1">to</span>
-                                        <input type="number" min="1" max="10" value={powerMax} onChange={handlePowerMaxChange} className="w-full py-1.5 px-2 text-sm font-bold text-center rounded border-2 border-slate-200 focus:border-indigo-500 outline-none"/>
-                                    </div>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-slate-500 w-12">{mode === 'power' ? 'Power:' : 'Root:'}</span>
+                                    <input type="number" min="1" max="10" value={powerMin} onChange={handlePowerMinChange} className="w-full py-1.5 px-2 text-sm font-bold text-center rounded border-2 border-slate-200 focus:border-indigo-500 outline-none"/>
+                                    <span className="text-slate-400 text-xs font-bold px-1">to</span>
+                                    <input type="number" min="1" max="10" value={powerMax} onChange={handlePowerMaxChange} className="w-full py-1.5 px-2 text-sm font-bold text-center rounded border-2 border-slate-200 focus:border-indigo-500 outline-none"/>
+                                </div>
                             </div>
                         </section>
 
@@ -240,13 +261,17 @@
                 <div ref={gameContainerRef} tabIndex={0} onKeyDown={handleKeyDown} className="w-full max-w-md mx-auto flex flex-col h-full outline-none">
                     <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border border-slate-100 mb-3 shrink-0">
                         <div className="flex items-center gap-2 text-slate-600">
-                            {gameDurationType === 'time' ? (
+                            {gameDurationType === 'time' && (
                                 <>
                                     <Timer className={`w-5 h-5 ${timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-indigo-500'}`} />
                                     <span className={`text-xl font-mono font-bold ${timeLeft <= 10 ? 'text-red-500' : ''}`}>{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span>
                                 </>
-                            ) : (
+                            )}
+                            {gameDurationType === 'ceiling' && (
                                 <><Activity className="w-5 h-5 text-indigo-500" /><span className="text-lg font-bold">Q: {exercisesDone + 1}/{exerciseCeiling}</span></>
+                            )}
+                            {gameDurationType === 'survival' && (
+                                <><Skull className="w-5 h-5 text-red-500" /><span className="text-lg font-bold">Survival</span></>
                             )}
                         </div>
                         <div className="flex items-center gap-1.5 text-slate-600"><span className="text-xl font-mono font-bold text-emerald-500">{score}</span><Trophy className="w-5 h-5 text-yellow-500" /></div>
@@ -254,9 +279,11 @@
 
                     <div className="flex-grow flex flex-col justify-center min-h-[220px]">
                         <div className="bg-white px-6 py-8 rounded-3xl shadow-xl border border-slate-100 text-center relative overflow-hidden flex flex-col items-center">
-                            <div className="absolute top-0 left-0 w-full h-1.5 bg-indigo-100">
-                                <div className={`h-full bg-indigo-500 transition-all ${gameDurationType === 'time' ? 'duration-1000' : 'duration-500'} linear`} style={{ width: `${gameDurationType === 'time' ? (timeLeft / timeLimit) * 100 : (exercisesDone / exerciseCeiling) * 100}%` }} />
-                            </div>
+                            {gameDurationType !== 'survival' && (
+                                <div className="absolute top-0 left-0 w-full h-1.5 bg-indigo-100">
+                                    <div className={`h-full bg-indigo-500 transition-all ${gameDurationType === 'time' ? 'duration-1000' : 'duration-500'} linear`} style={{ width: `${gameDurationType === 'time' ? (timeLeft / timeLimit) * 100 : (exercisesDone / exerciseCeiling) * 100}%` }} />
+                                </div>
+                            )}
                             
                             <div className="mb-6 flex justify-center items-start text-6xl font-black text-slate-800">
                                 {currentQuestion.type === 'power' ? (
@@ -265,6 +292,7 @@
                                     </>
                                 ) : (
                                     <div className="flex items-center gap-0.5">
+                                        <sup className="text-2xl text-indigo-600 translate-y-[10px] mr-[-4px]">{currentQuestion.power === 2 ? '' : currentQuestion.power}</sup>
                                         <span className="text-5xl text-indigo-600 font-light translate-y-[-2px]">√</span>
                                         <span className="border-t-4 border-slate-800 px-1">{currentQuestion.base}</span>
                                     </div>
@@ -298,9 +326,15 @@
             // ---- SUMMARY SCREEN ----
             const renderSummary = () => {
                 const accuracy = history.length > 0 ? Math.round((score / history.length) * 100) : 0;
-                const powerRangeText = mode === 'power' ? `Powers ${powerMin}${powerMin !== powerMax ? ` to ${powerMax}` : ''}` : '';
-                const baseRangeText = mode === 'power' ? `Bases ${baseMin}${baseMin !== baseMax ? ` to ${baseMax}` : ''}` : `Roots ${baseMin}${baseMin !== baseMax ? ` to ${baseMax}` : ''}`;
-                const formatText = gameDurationType === 'time' ? (timeLimit >= 60 ? `${timeLimit/60}m` : `${timeLimit}s`) : `${exerciseCeiling} Qs`;
+                const powerLabel = mode === 'power' ? 'Powers' : 'Roots';
+                const baseLabel = mode === 'power' ? 'Bases' : 'Result Range';
+                
+                const powerRangeText = `${powerLabel} ${powerMin}${powerMin !== powerMax ? ` to ${powerMax}` : ''}`;
+                const baseRangeText = `${baseLabel} ${baseMin}${baseMin !== baseMax ? ` to ${baseMax}` : ''}`;
+                
+                let formatText = "Survival";
+                if (gameDurationType === 'time') formatText = (timeLimit >= 60 ? `${timeLimit/60}m` : `${timeLimit}s`);
+                if (gameDurationType === 'ceiling') formatText = `${exerciseCeiling} Qs`;
 
                 return (
                 <div className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-full md:h-[85vh] md:max-h-[900px] md:flex-row">
@@ -310,7 +344,9 @@
                         <div className="p-4 md:p-6 text-center flex-grow flex flex-col justify-center">
                             <div className="flex items-center justify-center gap-3 mb-1">
                                 <Trophy className="w-7 h-7 md:w-10 md:h-10 text-yellow-400" />
-                                <h2 className="text-2xl md:text-3xl font-extrabold">{gameDurationType === 'time' ? "Time's Up!" : "Complete!"}</h2>
+                                <h2 className="text-2xl md:text-3xl font-extrabold">
+                                    {gameDurationType === 'survival' ? "Survival End" : (gameDurationType === 'time' ? "Time's Up!" : "Complete!")}
+                                </h2>
                                 <Trophy className="w-7 h-7 md:w-10 md:h-10 text-yellow-400" />
                             </div>
                             <p className="text-slate-400 text-[10px] md:text-xs uppercase tracking-widest font-bold mb-4 md:mb-6 opacity-80">Final Statistics</p>
@@ -327,11 +363,10 @@
                             </div>
                             
                             <div className="text-[10px] md:text-xs font-bold text-slate-400 bg-slate-900/40 py-1.5 px-3 rounded-full inline-block mx-auto border border-slate-700/50">
-                                {formatText.toUpperCase()} • {baseRangeText.toUpperCase()} {powerRangeText ? `• ${powerRangeText.toUpperCase()}` : ''}
+                                {formatText.toUpperCase()} • {baseRangeText.toUpperCase()} • {powerRangeText.toUpperCase()}
                             </div>
                         </div>
 
-                        {/* Desktop Play Again Button - Bottom Aligned */}
                         <div className="hidden md:block p-4 bg-slate-900/50 border-t border-slate-700/30 shrink-0">
                             <button onClick={() => setGameState('menu')} className="w-full py-4 bg-indigo-600 hover:bg-indigo-550 text-white rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95">
                                 <RotateCcw className="w-5 h-5" /> Play Again
@@ -362,7 +397,7 @@
                                                 {item.type === 'power' ? (
                                                     <>{item.base}<sup className="text-xs text-indigo-500 ml-0.5">{item.power}</sup></>
                                                 ) : (
-                                                    <><span className="text-indigo-500">√</span>{item.base}</>
+                                                    <><sup className="text-[10px] text-indigo-500 mr-[-2px]">{item.power === 2 ? '' : item.power}</sup><span className="text-indigo-500">√</span>{item.base}</>
                                                 )}
                                                 <span> = {item.isSkip ? <span className="text-slate-400 italic text-sm">Skipped</span> : item.userAnswer}</span>
                                             </div>
@@ -376,14 +411,12 @@
                             )}
                         </div>
 
-                        {/* Mobile Play Again Button */}
                         <div className="md:hidden p-3 bg-white border-t border-slate-200 shrink-0 z-10 shadow-sm">
                             <button onClick={() => setGameState('menu')} className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95">
                                 <RotateCcw className="w-5 h-5" /> Play Again
                             </button>
                         </div>
                     </div>
-
                 </div>
                 );
             };
