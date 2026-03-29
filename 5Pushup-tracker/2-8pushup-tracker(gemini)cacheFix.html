@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  
+  <!-- Cache-busting meta tags to force browsers to fetch the latest code -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
   <title>💪 Pushup Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -491,20 +497,21 @@
     } else {
       // Sort chronologically by join time (oldest first)
       names.sort((a, b) => {
-        const timeA = state[a]?.joinedAt || 0;
-        const timeB = state[b]?.joinedAt || 0;
+        const timeA = typeof state[a] === 'object' ? (state[a].joinedAt || 0) : 0;
+        const timeB = typeof state[b] === 'object' ? (state[b].joinedAt || 0) : 0;
         return timeA - timeB;
       });
 
       list.innerHTML = names.map(name => {
         const pData = state[name] || { count: 0 };
-        const count = pData.count || 0;
+        // Auto-heal local render immediately if corrupted by old client
+        const count = typeof pData === 'number' ? pData : (pData.count || 0);
         const isMe  = name === myName;
         const safe  = esc(name);
         
         // 3-Minute Limit logic for Catchup
         let catchupBtn = '';
-        const joinTime = pData.joinedAt || 0;
+        const joinTime = typeof pData === 'object' ? (pData.joinedAt || 0) : 0;
         const timeSinceJoin = Date.now() - joinTime;
         const isWithin3Mins = timeSinceJoin <= (3 * 60 * 1000);
 
@@ -626,13 +633,40 @@
           roomData = snapshot.data();
           const oldState = state;
           state = roomData.players || {};
-          
+
+          // ==========================================
+          // 🛡️ AUTO-HEALING DEFENSE SYSTEM
+          // Detects if a friend with an old app cache overwrites
+          // the player object with a primitive number, and fixes it globally.
+          // ==========================================
+          let needsHealing = false;
+          const updatesList = [];
+
+          for (const p in state) {
+            if (typeof state[p] === 'number') {
+              const recoveredCount = state[p];
+              state[p] = { count: recoveredCount, joinedAt: Date.now(), active: true };
+              updatesList.push(new FieldPath('players', p), state[p]);
+              needsHealing = true;
+            }
+          }
+
+          if (needsHealing && myName) {
+            updateDoc(roomRef, ...updatesList).catch(console.error);
+          }
+          // ==========================================
+
           if (!connected) connected = true;
 
           for (const player in state) {
             const oldData = oldState[player];
             const newCount = state[player].count;
-            if (oldData !== undefined && newCount > oldData.count) {
+            let oldCount = 0;
+            if (oldData) {
+              oldCount = typeof oldData === 'number' ? oldData : (oldData.count || 0);
+            }
+
+            if (oldData !== undefined && newCount > oldCount) {
               bumpCount(player);
             }
           }
@@ -720,7 +754,10 @@
 
   async function removeOne(name) {
     if (!currentUser || !connected) return;
-    if (!state.hasOwnProperty(name) || state[name].count <= 0) return;
+    
+    // Protect against stale primitive data crash during manual clicks
+    const currentCount = typeof state[name] === 'number' ? state[name] : (state[name]?.count || 0);
+    if (currentCount <= 0) return;
 
     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
 
@@ -744,7 +781,9 @@
   async function catchup() {
     if (!currentUser || !connected) return;
     const target = roomData.grandTotal || 0;
-    if (!state[myName] || state[myName].count >= target) return;
+    
+    const currentCount = typeof state[myName] === 'number' ? state[myName] : (state[myName]?.count || 0);
+    if (currentCount >= target) return;
 
     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
     const logObj = createLog(`${getTimeString()} - ${myName} used catchup (to ${target})`);
