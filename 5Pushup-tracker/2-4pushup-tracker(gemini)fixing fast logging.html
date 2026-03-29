@@ -34,6 +34,27 @@
     .hdr-title { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; letter-spacing: 0.04em; line-height: 1; }
     .hdr-sub { color: var(--muted); font-size: 0.8rem; line-height: 1.4; padding-bottom: 0.3rem; }
 
+    /* ── Editable Title ── */
+    .hdr-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3rem;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      padding: 0;
+      margin: 0;
+      outline: none;
+      border-bottom: 2px solid transparent;
+      transition: border-color 0.2s;
+      text-transform: uppercase;
+    }
+    .hdr-input:focus {
+      border-bottom: 2px dashed var(--muted);
+    }
+
     /* ── Setup ── */
     .setup-card {
       background: var(--card);
@@ -119,11 +140,11 @@
     }
     .btn-shout:active { transform: scale(0.96); box-shadow: 0 2px 10px rgba(255,59,59,0.2); }
 
-    /* ── Room bar ── */
+    /* ── Room bar & Grand Total ── */
     .room-bar {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.5rem;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -137,6 +158,13 @@
       font-size: 1.5rem;
       letter-spacing: 0.2em;
       color: var(--red);
+    }
+    .grand-total {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.8rem;
+      color: var(--red);
+      line-height: 1;
+      letter-spacing: 0.05em;
     }
 
     /* ── Status ── */
@@ -215,6 +243,69 @@
     .btn-minus:not(:disabled):active { background: #2a2a2a; transform: scale(0.9); }
     .btn-minus:disabled { opacity: 0.2; cursor: not-allowed; }
 
+    /* ── New Feature Buttons ── */
+    .btn-catchup {
+      background: transparent;
+      color: var(--green);
+      border: 1px solid var(--green);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.4rem 0.6rem;
+      border-radius: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.1s;
+    }
+    .btn-catchup:active {
+      transform: scale(0.95);
+      background: rgba(0, 230, 118, 0.1);
+    }
+    .btn-remove {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 0.4rem;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-remove:active {
+      color: var(--red);
+      background: rgba(255, 59, 59, 0.1);
+    }
+
+    /* ── Logs ── */
+    .log-container {
+      max-height: 140px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding-right: 0.5rem;
+    }
+    .log-container::-webkit-scrollbar { width: 4px; }
+    .log-container::-webkit-scrollbar-track { background: transparent; }
+    .log-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    
+    .log-entry {
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 0.4rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
     /* ── Empty state ── */
     .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; font-size: 0.875rem; line-height: 1.6; }
 
@@ -262,8 +353,10 @@
 
   <!-- ════ GAME SCREEN ════ -->
   <div id="game-screen">
+    
+    <!-- Editable Title -->
     <div class="hdr" style="padding-top:0.75rem;">
-      <span class="hdr-title">💪 PUSHUP TRACKER</span>
+      <input type="text" id="room-title-input" class="hdr-input" value="💪 PUSHUP TRACKER" autocomplete="off" spellcheck="false">
     </div>
 
     <div class="status-bar" style="margin-top:0.75rem;">
@@ -272,9 +365,16 @@
     </div>
 
     <div class="room-bar">
-      <span class="room-label">Room</span>
-      <span class="room-code" id="display-code"></span>
-      <button class="btn btn-ghost" id="copy-btn">Copy code</button>
+      <div style="flex:1; display:flex; align-items:center; gap:0.5rem; overflow:hidden;">
+        <span class="room-label">Room</span>
+        <span class="room-code" id="display-code"></span>
+        <button class="btn btn-ghost" id="copy-btn" style="padding: 0.3rem 0.6rem; font-size: 0.7rem;">Copy</button>
+      </div>
+      <!-- Grand Total Display -->
+      <div style="text-align: right; border-left: 1px solid var(--border); padding-left: 1rem; margin-left: 0.5rem;">
+        <div class="room-label" style="font-size:0.6rem; margin-bottom:0.1rem; text-align:right;">Room Total</div>
+        <div class="grand-total" id="grand-total-display">0</div>
+      </div>
     </div>
 
     <button class="btn-shout" id="add-all-btn">
@@ -284,6 +384,14 @@
     <div class="players" id="players-list">
       <div class="empty">Waiting for players to join…<br><br>
         Share the room code with your crew.</div>
+    </div>
+
+    <!-- Audit Log Card -->
+    <div class="setup-card" style="margin-top:0; margin-bottom:1.25rem; padding: 1rem;">
+      <div class="setup-label">Audit Log</div>
+      <div class="log-container" id="log-container">
+        <!-- populated by JS -->
+      </div>
     </div>
 
     <div class="footer">
@@ -297,12 +405,11 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
   import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-  import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, increment, arrayUnion, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
   // 1. FIREBASE CONFIGURATION
   let firebaseConfig;
   try {
-      // Automatic configuration when running inside this preview platform
       firebaseConfig = JSON.parse(__firebase_config);
   } catch (e) {
       // ⚠️ REPLACE THIS BLOCK WITH YOUR OWN CONFIG WHEN HOSTING EXTERNALLY ⚠️
@@ -324,7 +431,8 @@
 
   let myName   = '';
   let roomCode = '';
-  let state    = {};   // { playerName: count }
+  let roomData = { title: "💪 PUSHUP TRACKER", grandTotal: 0, logs: [], players: {} };
+  let state    = {};   // Reference to roomData.players
   let connected = false;
   let currentUser = null;
   let unsubscribeRoom = null;
@@ -345,6 +453,16 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  function getTimeString() {
+    const d = new Date();
+    return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+  }
+
+  // Ensures every log is completely unique so Firebase arrayUnion doesn't drop duplicates
+  function createLog(msg) {
+    return { text: msg, id: Date.now() + Math.random().toString(36).substr(2, 5) };
+  }
+
   /* ── UI helpers ───────────────────────────────────────────────────── */
   function show(id)  { document.getElementById(id).style.display = 'block'; }
   function hide(id)  { document.getElementById(id).style.display = 'none'; }
@@ -357,7 +475,6 @@
   }
 
   function bumpCount(name) {
-    // Need to use CSS.escape to handle names with spaces/special characters
     const safeSelector = CSS.escape(name);
     const el = document.querySelector(`[data-name="${safeSelector}"] .player-count`);
     if (!el) return;
@@ -367,40 +484,81 @@
 
   /* ── Render ───────────────────────────────────────────────────────── */
   function render() {
+    // 1. Sync Title
+    const titleInput = document.getElementById('room-title-input');
+    if (document.activeElement !== titleInput && roomData.title) {
+      titleInput.value = roomData.title;
+    }
+
+    // 2. Sync Grand Total
+    document.getElementById('grand-total-display').textContent = roomData.grandTotal || 0;
+
+    // 3. Sync Players List
     const list = document.getElementById('players-list');
     const names = Object.keys(state);
 
     if (names.length === 0) {
       list.innerHTML = '<div class="empty">Waiting for players to join…<br><br>Share the room code with your crew.</div>';
-      return;
-    }
+    } else {
+      // Sort chronologically by join time (oldest first)
+      names.sort((a, b) => {
+        const timeA = state[a]?.joinedAt || 0;
+        const timeB = state[b]?.joinedAt || 0;
+        return timeA - timeB;
+      });
 
-    names.sort((a, b) => {
-      const d = (state[b] || 0) - (state[a] || 0);
-      if (d !== 0) return d;
-      if (a === myName) return -1;
-      if (b === myName) return 1;
-      return a.localeCompare(b);
-    });
+      list.innerHTML = names.map(name => {
+        const pData = state[name] || { count: 0 };
+        const count = pData.count || 0;
+        const isMe  = name === myName;
+        const safe  = esc(name);
+        
+        let catchupBtn = '';
+        if (isMe && count < (roomData.grandTotal || 0)) {
+          catchupBtn = `<button class="btn-catchup" data-action="catchup">Catchup</button>`;
+        }
+        
+        let removeBtn = '';
+        if (!isMe) {
+          removeBtn = `<button class="btn-remove" data-action="remove" data-player="${safe}">×</button>`;
+        }
 
-    list.innerHTML = names.map(name => {
-      const count = state[name] || 0;
-      const isMe  = name === myName;
-      const safe  = esc(name);
-      return `
-        <div class="player ${isMe ? 'is-me' : ''}" data-name="${safe}">
-          <div class="player-info">
-            <div class="player-name">${safe}</div>
-            ${isMe ? '<div class="player-you">you</div>' : ''}
+        return `
+          <div class="player ${isMe ? 'is-me' : ''}" data-name="${safe}">
+            <div class="player-info">
+              <div style="display:flex; align-items:center; gap:0.4rem;">
+                <div class="player-name">${safe}</div>
+                ${isMe ? '<div class="player-you">you</div>' : ''}
+                ${removeBtn}
+              </div>
+            </div>
+            ${catchupBtn}
+            <div class="player-count ${count === 0 ? 'zero' : ''}">${count}</div>
+            <button class="btn-minus" data-action="minus" data-player="${safe}" ${count === 0 ? 'disabled' : ''}>−</button>
           </div>
-          <div class="player-count ${count === 0 ? 'zero' : ''}">${count}</div>
-          <button class="btn-minus" data-player="${safe}" ${count === 0 ? 'disabled' : ''}>−</button>
-        </div>
-      `;
-    }).join('');
+        `;
+      }).join('');
+    }
 
     if (connected) {
       setStatus(true, 'Live · ' + names.length + ' player' + (names.length !== 1 ? 's' : ''));
+    }
+
+    // 4. Sync Logs
+    const logContainer = document.getElementById('log-container');
+    const logs = roomData.logs || [];
+    
+    if (logs.length === 0) {
+      logContainer.innerHTML = `<div class="empty" style="padding: 0.5rem; font-size: 0.75rem;">No activity yet.</div>`;
+    } else {
+      const displayLogs = logs.slice(-30); // Show up to last 30 logs for performance
+      logContainer.innerHTML = displayLogs.map(l => {
+        // Fallback gracefully for older plain string logs before this update
+        const text = typeof l === 'string' ? l : l.text;
+        return `<div class="log-entry">${esc(text)}</div>`;
+      }).join('');
+      // Snap to bottom
+      setTimeout(() => logContainer.scrollTop = logContainer.scrollHeight, 10);
     }
   }
 
@@ -440,35 +598,42 @@
     setStatus(false, 'Connecting…');
 
     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const joinTime = Date.now();
+    const joinLog = createLog(`${getTimeString()} - ${myName} joined the room`);
 
     try {
-      // 1. Fetch current room to make sure we don't accidentally overwrite our own score to 0 if we re-join
       const docSnap = await getDoc(roomRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (!data.players || data.players[myName] === undefined) {
-          // Add us to the room map
-          await setDoc(roomRef, { players: { [myName]: 0 } }, { merge: true });
+        const updates = {};
+        if (!data.players || !data.players[myName]) {
+          updates[`players.${myName}`] = { count: 0, joinedAt: joinTime };
+          updates.logs = arrayUnion(joinLog);
+        }
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(roomRef, updates);
         }
       } else {
-        // Room is brand new
-        await setDoc(roomRef, { players: { [myName]: 0 } }, { merge: true });
+        await setDoc(roomRef, {
+          title: "💪 PUSHUP TRACKER",
+          grandTotal: 0,
+          logs: [joinLog],
+          players: { [myName]: { count: 0, joinedAt: joinTime } }
+        });
       }
 
-      // 2. Listen to room changes in real-time
       unsubscribeRoom = onSnapshot(roomRef, (snapshot) => {
         if (snapshot.exists()) {
-          const data = snapshot.data();
+          roomData = snapshot.data();
           const oldState = state;
-          state = data.players || {};
+          state = roomData.players || {};
           
-          if (!connected) {
-            connected = true;
-          }
+          if (!connected) connected = true;
 
-          // Trigger animation bump for anyone whose count increased
           for (const player in state) {
-            if (oldState[player] !== undefined && state[player] > oldState[player]) {
+            const oldData = oldState[player];
+            const newCount = state[player].count;
+            if (oldData !== undefined && newCount > oldData.count) {
               bumpCount(player);
             }
           }
@@ -487,15 +652,35 @@
   }
 
   /* ── Actions ──────────────────────────────────────────────────────── */
+  
+  // Update Room Title (Debounced to protect Firebase limits)
+  let titleTimeout;
+  document.getElementById('room-title-input').addEventListener('input', (e) => {
+    clearTimeout(titleTimeout);
+    titleTimeout = setTimeout(async () => {
+      const newTitle = e.target.value.trim();
+      if (newTitle && roomCode && connected) {
+        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+        await updateDoc(roomRef, { title: newTitle });
+      }
+    }, 800);
+  });
+
   async function addToAll() {
     if (!currentUser || !connected) return;
     const names = Object.keys(state);
     if (names.length === 0) return;
 
     const updates = {};
+    const currentTotal = roomData.grandTotal || 0;
+    
+    updates.grandTotal = increment(1);
     names.forEach(name => {
-      updates[`players.${name}`] = increment(1); // Firebase handles the math securely
+      updates[`players.${name}.count`] = increment(1); 
     });
+    
+    const logObj = createLog(`${getTimeString()} - ${myName} added +1 to ALL (Total: ${currentTotal + 1})`);
+    updates.logs = arrayUnion(logObj);
 
     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
     try {
@@ -508,12 +693,49 @@
 
   async function removeOne(name) {
     if (!currentUser || !connected) return;
-    if (!state.hasOwnProperty(name) || state[name] <= 0) return;
+    if (!state.hasOwnProperty(name) || state[name].count <= 0) return;
 
     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const logObj = createLog(`${getTimeString()} - ${myName} removed 1 from ${name === myName ? 'themselves' : name}`);
+
     try {
       await updateDoc(roomRef, {
-        [`players.${name}`]: increment(-1)
+        [`players.${name}.count`]: increment(-1),
+        logs: arrayUnion(logObj)
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function catchup() {
+    if (!currentUser || !connected) return;
+    const target = roomData.grandTotal || 0;
+    if (!state[myName] || state[myName].count >= target) return;
+
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const logObj = createLog(`${getTimeString()} - ${myName} used catchup (to ${target})`);
+
+    try {
+      await updateDoc(roomRef, {
+        [`players.${myName}.count`]: target,
+        logs: arrayUnion(logObj)
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function removePlayer(name) {
+    if (!currentUser || !connected || name === myName) return;
+    
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const logObj = createLog(`${getTimeString()} - ${myName} removed ${name} from the room`);
+
+    try {
+      await updateDoc(roomRef, {
+        [`players.${name}`]: deleteField(),
+        logs: arrayUnion(logObj)
       });
     } catch (e) {
       console.error(e);
@@ -545,11 +767,21 @@
 
   document.getElementById('add-all-btn').addEventListener('click', addToAll);
 
-  // Event delegation for minus buttons
+  // Event delegation for all dynamically generated buttons in the player list
   document.getElementById('players-list').addEventListener('click', function (e) {
-    const btn = e.target.closest('.btn-minus');
+    const btn = e.target.closest('button');
     if (!btn || btn.disabled) return;
-    removeOne(btn.dataset.player);
+    
+    const action = btn.dataset.action;
+    const player = btn.dataset.player;
+
+    if (action === 'minus') {
+      removeOne(player);
+    } else if (action === 'catchup') {
+      catchup();
+    } else if (action === 'remove') {
+      if (confirm(`Remove ${player} from the room?`)) removePlayer(player);
+    }
   });
 
   document.getElementById('copy-btn').addEventListener('click', function () {
@@ -562,7 +794,7 @@
     document.body.removeChild(ta);
     
     btn.textContent = '✓ Copied!';
-    setTimeout(() => btn.textContent = 'Copy code', 2000);
+    setTimeout(() => btn.textContent = 'Copy', 2000);
   });
 
   document.getElementById('leave-btn').addEventListener('click', function () {
@@ -571,6 +803,7 @@
       unsubscribeRoom = null;
     }
     roomCode = '';
+    roomData = { title: "💪 PUSHUP TRACKER", grandTotal: 0, logs: [], players: {} };
     state = {};
     connected = false;
     show('setup-screen');

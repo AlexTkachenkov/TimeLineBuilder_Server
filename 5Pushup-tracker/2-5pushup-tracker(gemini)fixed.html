@@ -262,7 +262,24 @@
       transform: scale(0.95);
       background: rgba(0, 230, 118, 0.1);
     }
-    
+    .btn-remove {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 0.4rem;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-remove:active {
+      color: var(--red);
+      background: rgba(255, 59, 59, 0.1);
+    }
+
     /* ── Logs ── */
     .log-container {
       max-height: 140px;
@@ -355,7 +372,7 @@
       </div>
       <!-- Grand Total Display -->
       <div style="text-align: right; border-left: 1px solid var(--border); padding-left: 1rem; margin-left: 0.5rem;">
-        <div class="room-label" style="font-size:0.6rem; margin-bottom:0.1rem; text-align:right;">Total</div>
+        <div class="room-label" style="font-size:0.6rem; margin-bottom:0.1rem; text-align:right;">Room Total</div>
         <div class="grand-total" id="grand-total-display">0</div>
       </div>
     </div>
@@ -371,7 +388,7 @@
 
     <!-- Audit Log Card -->
     <div class="setup-card" style="margin-top:0; margin-bottom:1.25rem; padding: 1rem;">
-      <div class="setup-label">Change Log</div>
+      <div class="setup-label">Audit Log</div>
       <div class="log-container" id="log-container">
         <!-- populated by JS -->
       </div>
@@ -482,9 +499,7 @@
 
     // 3. Sync Players List
     const list = document.getElementById('players-list');
-    
-    // Filter out inactive players (those who left the room)
-    const names = Object.keys(state).filter(name => state[name]?.active !== false);
+    const names = Object.keys(state);
 
     if (names.length === 0) {
       list.innerHTML = '<div class="empty">Waiting for players to join…<br><br>Share the room code with your crew.</div>';
@@ -517,6 +532,11 @@
             if (roomCode) render(); 
           }, (3 * 60 * 1000) - timeSinceJoin + 100);
         }
+        
+        let removeBtn = '';
+        if (!isMe) {
+          removeBtn = `<button class="btn-remove" data-action="remove" data-player="${safe}">×</button>`;
+        }
 
         return `
           <div class="player ${isMe ? 'is-me' : ''}" data-name="${safe}">
@@ -524,6 +544,7 @@
               <div style="display:flex; align-items:center; gap:0.4rem;">
                 <div class="player-name">${safe}</div>
                 ${isMe ? '<div class="player-you">you</div>' : ''}
+                ${removeBtn}
               </div>
             </div>
             ${catchupBtn}
@@ -601,15 +622,8 @@
         // Fallback for players rejoining: use updateDoc with explicit FieldPath to bypass any nested naming issues
         if (!data.players || !data.players[myName]) {
           await updateDoc(roomRef, 
-            new FieldPath('players', myName), { count: 0, joinedAt: joinTime, active: true },
+            new FieldPath('players', myName), { count: 0, joinedAt: joinTime },
             'logs', arrayUnion(joinLog)
-          );
-        } else {
-          // Player exists, reactivate them
-          const rejoinLog = createLog(`${getTimeString()} - ${myName} rejoined the room`);
-          await updateDoc(roomRef, 
-            new FieldPath('players', myName, 'active'), true,
-            'logs', arrayUnion(rejoinLog)
           );
         }
       } else {
@@ -617,7 +631,7 @@
           title: "💪 PUSHUP TRACKER",
           grandTotal: 0,
           logs: [joinLog],
-          players: { [myName]: { count: 0, joinedAt: joinTime, active: true } }
+          players: { [myName]: { count: 0, joinedAt: joinTime } }
         });
       }
 
@@ -650,31 +664,6 @@
     }
   }
 
-  /* ── Exit Room Handling ── */
-  async function performExitRoutine() {
-    if (!connected || !roomCode || !myName) return;
-    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
-    const logObj = createLog(`${getTimeString()} - ${myName} left the room`);
-    try {
-      // Mark as inactive instead of deleting to save their score
-      await updateDoc(roomRef, 
-        new FieldPath('players', myName, 'active'), false,
-        'logs', arrayUnion(logObj)
-      );
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  // Handle browser close/refresh
-  window.addEventListener('beforeunload', () => {
-    if (connected && roomCode && myName) {
-      const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
-      // Synchronous-ish best effort removal
-      updateDoc(roomRef, new FieldPath('players', myName, 'active'), false);
-    }
-  });
-
   /* ── Actions ──────────────────────────────────────────────────────── */
   
   // Update Room Title natively handling "Blur" and "Enter"
@@ -695,9 +684,7 @@
 
   async function addToAll() {
     if (!currentUser || !connected) return;
-    
-    // Only add pushups to players who are currently in the room
-    const names = Object.keys(state).filter(n => state[n]?.active !== false);
+    const names = Object.keys(state);
     if (names.length === 0) return;
 
     const currentTotal = roomData.grandTotal || 0;
@@ -723,19 +710,13 @@
     if (!state.hasOwnProperty(name) || state[name].count <= 0) return;
 
     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const logObj = createLog(`${getTimeString()} - ${myName} removed 1 from ${name === myName ? 'themselves' : name}`);
 
     try {
-      if (name === myName) {
-        // Just remove the point, don't spam the log for self-reductions
-        await updateDoc(roomRef, new FieldPath('players', name, 'count'), increment(-1));
-      } else {
-        // Log if you remove points from someone else
-        const logObj = createLog(`${getTimeString()} - ${myName} removed 1 from ${name}`);
-        await updateDoc(roomRef, 
-          new FieldPath('players', name, 'count'), increment(-1),
-          'logs', arrayUnion(logObj)
-        );
-      }
+      await updateDoc(roomRef, 
+        new FieldPath('players', name, 'count'), increment(-1),
+        'logs', arrayUnion(logObj)
+      );
     } catch (e) {
       console.error(e);
     }
@@ -752,6 +733,22 @@
     try {
       await updateDoc(roomRef, 
         new FieldPath('players', myName, 'count'), target,
+        'logs', arrayUnion(logObj)
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function removePlayer(name) {
+    if (!currentUser || !connected || name === myName) return;
+    
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const logObj = createLog(`${getTimeString()} - ${myName} removed ${name} from the room`);
+
+    try {
+      await updateDoc(roomRef, 
+        new FieldPath('players', name), deleteField(),
         'logs', arrayUnion(logObj)
       );
     } catch (e) {
@@ -796,6 +793,8 @@
       removeOne(player);
     } else if (action === 'catchup') {
       catchup();
+    } else if (action === 'remove') {
+      if (confirm(`Remove ${player} from the room?`)) removePlayer(player);
     }
   });
 
@@ -812,10 +811,7 @@
     setTimeout(() => btn.textContent = 'Copy', 2000);
   });
 
-  document.getElementById('leave-btn').addEventListener('click', async function () {
-    // Actively delete player entry from the room upon clicking leave
-    await performExitRoutine();
-
+  document.getElementById('leave-btn').addEventListener('click', function () {
     if (unsubscribeRoom) {
       unsubscribeRoom();
       unsubscribeRoom = null;

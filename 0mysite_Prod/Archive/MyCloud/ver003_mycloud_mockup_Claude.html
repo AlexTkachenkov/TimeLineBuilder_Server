@@ -847,7 +847,7 @@
                 <input class="search-input" placeholder="Search files..." id="searchInput" oninput="handleSearch(this.value)" />
             </div>
             <div class="topbar-right">
-                <div class="topbar-badge"><div class="dot" id="connDot"></div><span id="connText">mycloud.duckdns.org</span></div>
+                <div class="topbar-badge"><div class="dot" id="connDot"></div><span id="connText">mydomain.com</span></div>
                 <div class="topbar-badge"><div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></div>TLS 1.3</div>
                 <div class="user-avatar-top" id="topAvatar" style="background:linear-gradient(135deg,#3b82f6,#6366f1)">A</div>
             </div>
@@ -910,7 +910,7 @@ let state = {
     logs: [
         { id:1, time:'2025-02-22 11:03:57', msg:'User [admin] logged in from 192.168.1.5',          type:'info'    },
         { id:2, time:'2025-02-22 10:48:31', msg:'Scheduled Backup completed: Volume 1 → /ext1',      type:'success' },
-        { id:3, time:'2025-02-22 10:12:00', msg:'DDNS update successful: mycloud.duckdns.org',       type:'success' },
+        { id:3, time:'2025-02-22 10:12:00', msg:'DDNS update successful: mydomain.com',       type:'success' },
         { id:4, time:'2025-02-21 23:59:14', msg:'Failed login attempt from 203.0.113.42',            type:'alert'   },
         { id:5, time:'2025-02-21 20:31:05', msg:'User [alex] downloaded Photos/Hike_2025.png',       type:'info'    },
         { id:6, time:'2025-02-21 14:20:00', msg:'User [roee] uploaded Work Projects/Roadmap_2025.pptx', type:'info' },
@@ -1236,7 +1236,7 @@ function renderDashboard() {
             <div class="card-title">Connectivity</div>
             <div class="connectivity-row">
                 <div class="conn-icon ok"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
-                <div class="conn-info"><div class="conn-title">DDNS Active</div><div class="conn-sub">mycloud.duckdns.org → 203.0.113.5</div></div>
+                <div class="conn-info"><div class="conn-title">DDNS Active</div><div class="conn-sub">mydomain.com → 203.0.113.5</div></div>
                 <span class="conn-status ok">Active</span>
             </div>
             <div class="connectivity-row">
@@ -1411,7 +1411,7 @@ function renderSettings() {
     <div class="card" style="max-width:520px;margin-bottom:14px">
         <div class="card-title">Network & DDNS</div>
         <div class="form-group"><label class="form-label">DDNS Provider</label><select class="form-select"><option>DuckDNS</option><option>No-IP</option><option>Cloudflare</option></select></div>
-        <div class="form-group"><label class="form-label">Domain Name</label><input class="form-input" value="mycloud.duckdns.org" /></div>
+        <div class="form-group"><label class="form-label">Domain Name</label><input class="form-input" value="mydomain.com" /></div>
         <div class="form-group"><label class="form-label">Auth Token</label><input class="form-input" type="password" value="xxxxxxxx-xxxx-xxxx" /></div>
         <button class="btn btn-primary" onclick="showToast('Network settings saved','success')">Save</button>
     </div>
