@@ -514,8 +514,9 @@
         const joinTime = typeof pData === 'object' ? (pData.joinedAt || 0) : 0;
         const timeSinceJoin = Date.now() - joinTime;
         const isWithin3Mins = timeSinceJoin <= (3 * 60 * 1000);
+        const usedCatchup = typeof pData === 'object' ? (pData.usedCatchup === true) : false;
 
-        if (isMe && count < (roomData.grandTotal || 0) && isWithin3Mins) {
+        if (isMe && count < (roomData.grandTotal || 0) && isWithin3Mins && !usedCatchup) {
           catchupBtn = `<button class="btn-catchup" data-action="catchup">Catchup</button>`;
           
           // Re-render when the 3 mins are up to seamlessly hide the button
@@ -535,7 +536,7 @@
             </div>
             ${catchupBtn}
             <div class="player-count ${count === 0 ? 'zero' : ''}">${count}</div>
-            <button class="btn-minus" data-action="minus" data-player="${safe}" ${count === 0 ? 'disabled' : ''}>−</button>
+            <button class="btn-minus" data-action="minus" data-player="${safe}" ${count === 0 ? 'disabled' : ''} style="${!isMe ? 'visibility: hidden;' : ''}">−</button>
           </div>
         `;
       }).join('');
@@ -754,6 +755,7 @@
 
   async function removeOne(name) {
     if (!currentUser || !connected) return;
+    if (name !== myName) return;
     
     // Protect against stale primitive data crash during manual clicks
     const currentCount = typeof state[name] === 'number' ? state[name] : (state[name]?.count || 0);
@@ -762,17 +764,8 @@
     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
 
     try {
-      if (name === myName) {
-        // Just remove the point, don't spam the log for self-reductions
-        await updateDoc(roomRef, new FieldPath('players', name, 'count'), increment(-1));
-      } else {
-        // Log if you remove points from someone else
-        const logObj = createLog(`${getTimeString()} - ${myName} removed 1 from ${name}`);
-        await updateDoc(roomRef, 
-          new FieldPath('players', name, 'count'), increment(-1),
-          'logs', arrayUnion(logObj)
-        );
-      }
+      // Just remove the point, don't spam the log for self-reductions
+      await updateDoc(roomRef, new FieldPath('players', myName, 'count'), increment(-1));
     } catch (e) {
       console.error(e);
     }
@@ -791,6 +784,7 @@
     try {
       await updateDoc(roomRef, 
         new FieldPath('players', myName, 'count'), target,
+        new FieldPath('players', myName, 'usedCatchup'), true,
         'logs', arrayUnion(logObj)
       );
     } catch (e) {
