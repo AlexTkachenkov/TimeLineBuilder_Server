@@ -1,0 +1,363 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+/*wrapper exceptions*/
+
+
+#wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  width: 100%;
+}
+
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 80px;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.logo-text {
+  font-family: Nunito;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 100%;
+  letter-spacing: 25%;
+  color: #3E3F43;
+}
+.li {
+  font-family: Nunito;
+  font-weight: 700;
+  font-style: Bold;
+  font-size: 30px;
+  line-height: 100%;
+  letter-spacing: 0%;
+}
+
+nav ul {
+  display: flex;
+  list-style: none; 
+  gap: 30px; 
+}
+
+nav a {
+  text-decoration: none;
+  color: #612999;
+  font-weight: normal;
+  transition: color 0.3s ease; /* Makes the hover effect smooth */
+  font-size: 30px;
+  font-family: "Nunito", sans-serif;
+}
+
+/* The Active State (Rule: must be bold) */
+nav a.active {
+  font-weight: bold;
+}
+
+/* The Hover State (Rule: must turn light purple) */
+nav a:hover {
+  color: #E6DBFE;
+}
+
+.hero-section {
+  width: 100%;
+  height: 60vh;
+
+  /*background-image: url("Software-bug.webp");*/
+  background-image: url("images/software_bug_edited.png");
+  background-size: cover;
+  background-position: center;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 10%;
+}
+
+.hero-content {
+  width: 500px;
+  height: 300px;
+}
+
+.hero-content h1 {
+  font-size: 48px;
+  color: #ffffff;
+  /*text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);*/
+  font-style: extra-bold;
+  font-weight: 800;
+  text-align: left;
+  font-family: "Nunito", sans-serif;
+}
+
+
+.hero-content p {
+  font-size: 24px;
+  color: #ffffff;
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
+  font-style: normal;
+  text-align: left;
+  font-family: "Nunito", sans-serif;
+  font-weight: 600;
+}
+
+#wrapper .about {
+  padding: 20px 20px;
+  font-family: "Rubik", sans-serif;
+  /*color: #9b59b6;*/
+  color: #333;
+}
+
+#wrapper .listOfBugs {
+    padding: 20px 0px 0px 20px;
+  font-family: "Rubik", sans-serif;
+}
+
+#wrapper .listOfBugs h2 {
+ font-family: Rubik;
+font-weight: 500;
+font-size: 40px;
+line-height: 40px;
+letter-spacing: 0%;
+padding: 0 0 20px 0;
+color: #612999;
+}
+
+#wrapper .listOfBugs ul {
+  list-style: none;
+}
+
+#wrapper .listOfBugs ul li {
+  font-family: "Rubik", sans-serif;
+  font-weight: 400;
+  font-size: 24px;
+  color: #555;
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+}
+
+#wrapper .listOfBugs ul li img {
+  width: 82px;
+  height: 82px;
+  padding: 20px;
+  margin-right: 10px;
+  background-color: #612999;
+  border-radius: 50%;
+  line-height: 14px;
+}
+
+.about h2 {
+  font-weight: 700;
+  font-size: 28px;
+  padding: 0 0 10px 0;
+  color: #612999;
+}
+.cards-title {
+  font-weight: 700;
+    font-family: "Rubik", sans-serif;
+    font-size: 28px;
+    padding: 20px 0 0 20px;
+    color: #612999;
+}
+
+.your-choice {
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  padding: 0 20px 32px 20px;
+  margin-top: 40px;
+  justify-content: left;;
+  height: auto; /*consider removing*/
+}
+
+.image-gallery  {
+  display: flex;
+  gap: 20px;
+  padding: 40px 20px;
+  justify-content: left;
+  flex-wrap: wrap;
+}
+.image-gallery  .gallery-image-container {
+  position: relative;
+}
+
+.image-gallery  .gallery-image-container img {
+  
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+  background-color: #E6DBFE;
+  padding : 4px;
+  /*border-radius: 38px;*/
+
+}
+
+
+
+.card {
+  flex: 0 0 calc(50% -16px);
+  max-width: 376px;
+  background-color: #EFECFF;
+  border-radius: 38px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.card-image-container {
+  position: relative;
+}
+
+.card-image {
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+  background-color: #EFECFF;
+  /*padding : 4px;*/
+  border-radius: 38px;
+
+}
+
+.card-image-container .heart-icon {
+  top: 15px;
+  right: 15px;
+  position: absolute;
+  background-color: #E6DBFE;
+  width: 47px;
+  height: 47px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.card h3 {
+  padding: 10px 0 0 28px;
+  font-family: "Abel", sans-serif;
+  font-weight: 400;
+  font-size: 30px;
+  color: #333;
+}
+
+.card p {
+  padding: 10px 10px 0 30px;
+  font-family: "Abel", sans-serif;
+  font-weight: 400;
+  font-size: 18px;
+  color: #555;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  color: #333;
+}
+
+.card-footer .price {
+  font-size: 35px;
+  font-family: "Abel", sans-serif;
+  padding: 15px 0 28px 30px;
+  color: #612999;
+}
+
+.card-footer .cart-icon {
+  background-color:#612999;
+  width: 63px;
+  height: 63px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  padding: 20px;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* --- FOOTER --- */
+footer {
+  padding: 32px 0 20px 32px;
+  background-color: #EFECFF;
+  font-family: "Nunito", sans-serif;
+}
+
+.footer-container {
+  /*display: flex;
+  flex-direction: column;*/
+  gap: 30px; 
+}
+
+
+.footer-columns {
+  display: flex;
+  gap: 100px; /* Big space between "Who We Are" and "Follow Us" */
+  margin: 0 0 24px 0;
+}
+
+.footer-col h4 {
+  margin: 0 0 15px 0;
+  font-size: 1rem;
+  color: #333;
+  cursor: default;
+}
+
+.footer-col ul {
+  list-style: none; /* Removes bullet points */
+}
+
+.footer-col ul li {
+  margin-bottom: 10px;
+}
+
+.footer-col a {
+  text-decoration: none;
+  color: #555;
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
+}
+
+.footer-col a:hover {
+  color: #9b59b6;
+}
+
+.social-icons {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.social-icons a {
+  text-decoration: none;
+  font-size: 1.2rem;
+}
+
+.copyright {
+  font-size: 16px;
+  font-weight: 600;
+  color: #777;
+  cursor: default; 
+}
