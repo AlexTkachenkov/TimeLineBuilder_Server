@@ -1,9 +1,0 @@
-node_modules/
-*.env
-*.txt
-*.bat
-*.zip
-*.pdf
-*.zip
-
-    *(This prevents your API key and heavy library files from cluttering your git history)*.

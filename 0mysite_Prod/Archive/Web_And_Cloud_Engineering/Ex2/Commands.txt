@@ -1,0 +1,6 @@
+git init
+git add .
+git commit -m "default commit"
+git branch -M main
+git remote add origin https://github.com/AlexTkachenkov/Web-and-Cloud-HW1-submission.git
+git push -u origin main
