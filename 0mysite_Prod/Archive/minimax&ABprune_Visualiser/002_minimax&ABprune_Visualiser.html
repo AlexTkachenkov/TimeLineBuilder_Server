@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimax vs Alpha-Beta Pruning</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        .slider-container {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+        }
+
+        .status {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            height: 24px;
+        }
+
+        .tree-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .node {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            z-index: 2;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s;
+        }
+
+        .node.max { border-radius: 5px; } 
+        .node.min { border-radius: 50%; } 
+        
+        .node.active { background-color: #ffeb3b; border-color: #fbc02d; box-shadow: 0 0 10px #ffeb3b; }
+        .node.evaluated { background-color: #4caf50; color: white; border-color: #388e3c; }
+        .node.pruned { background-color: #f44336; color: white; border-color: #d32f2f; opacity: 0.3; }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        line {
+            stroke: #999;
+            stroke-width: 2;
+            transition: stroke 0.3s, opacity 0.3s;
+        }
+        line.pruned {
+            stroke: #f44336;
+            stroke-dasharray: 5,5;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Alpha-Beta Pruning Visualizer</h1>
+    
+    <div class="controls">
+        <button id="btnMinimax" onclick="runSimulation('minimax')">Run Standard Minimax</button>
+        <button id="btnAlphaBeta" onclick="runSimulation('alphabeta')">Run Alpha-Beta Pruning</button>
+        <button onclick="resetTree()">Reset</button>
+    </div>
+
+    <div class="controls slider-container">
+        <label for="speedSlider">Animation Speed:</label>
+        <input type="range" id="speedSlider" min="1" max="10" value="5">
+    </div>
+    
+    <div class="status" id="statusText">Nodes Evaluated: 0 | Final Value: ?</div>
+
+    <div class="tree-container">
+        <svg id="lines"></svg>
+        <div id="nodes"></div>
+    </div>
+
+    <script>
+        // Tree Structure
+        let treeData = {
+            id: 'root', type: 'max', x: 400, y: 50, children: [
+                { id: 'L', type: 'min', x: 200, y: 150, children: [
+                    { id: 'LL', type: 'max', x: 100, y: 250, children: [
+                        { id: 'LLL', type: 'leaf', val: 3, x: 50, y: 350 },
+                        { id: 'LLR', type: 'leaf', val: 5, x: 150, y: 350 }
+                    ]},
+                    { id: 'LR', type: 'max', x: 300, y: 250, children: [
+                        { id: 'LRL', type: 'leaf', val: 6, x: 250, y: 350 },
+                        { id: 'LRR', type: 'leaf', val: 9, x: 350, y: 350 }
+                    ]}
+                ]},
+                { id: 'R', type: 'min', x: 600, y: 150, children: [
+                    { id: 'RL', type: 'max', x: 500, y: 250, children: [
+                        { id: 'RLL', type: 'leaf', val: 1, x: 450, y: 350 },
+                        { id: 'RLR', type: 'leaf', val: 2, x: 550, y: 350 }
+                    ]},
+                    { id: 'RR', type: 'max', x: 700, y: 250, children: [
+                        { id: 'RRL', type: 'leaf', val: 0, x: 650, y: 350 },
+                        { id: 'RRR', type: 'leaf', val: -1, x: 750, y: 350 }
+                    ]}
+                ]}
+            ]
+        };
+
+        let animationQueue = [];
+        let isRunning = false;
+        let nodesEvaluated = 0;
+
+        function drawTree(node, parent = null) {
+            if (parent) {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', parent.x); line.setAttribute('y1', parent.y);
+                line.setAttribute('x2', node.x); line.setAttribute('y2', node.y);
+                line.id = `line-${node.id}`;
+                document.getElementById('lines').appendChild(line);
+            }
+
+            const div = document.createElement('div');
+            div.className = `node ${node.type === 'leaf' ? 'max' : node.type}`;
+            div.id = `node-${node.id}`;
+            div.style.left = `${node.x}px`; div.style.top = `${node.y}px`;
+            div.innerText = node.type === 'leaf' ? node.val : '?';
+            document.getElementById('nodes').appendChild(div);
+
+            if (node.children) node.children.forEach(child => drawTree(child, node));
+        }
+
+        function resetTree() {
+            document.getElementById('lines').innerHTML = '';
+            document.getElementById('nodes').innerHTML = '';
+            document.getElementById('statusText').innerText = 'Nodes Evaluated: 0 | Final Value: ?';
+            animationQueue = [];
+            nodesEvaluated = 0;
+            isRunning = false;
+            document.getElementById('btnMinimax').disabled = false;
+            document.getElementById('btnAlphaBeta').disabled = false;
+            drawTree(treeData);
+        }
+
+        function enqueueAction(action, nodeId, value = null) {
+            animationQueue.push({ action, nodeId, value });
+        }
+
+        function minimax(node) {
+            enqueueAction('activate', node.id);
+            nodesEvaluated++;
+            
+            if (node.type === 'leaf') {
+                enqueueAction('evaluate', node.id, node.val);
+                return node.val;
+            }
+
+            let bestVal = node.type === 'max' ? -Infinity : Infinity;
+            for (let child of node.children) {
+                let val = minimax(child);
+                bestVal = node.type === 'max' ? Math.max(bestVal, val) : Math.min(bestVal, val);
+            }
+            
+            enqueueAction('evaluate', node.id, bestVal);
+            return bestVal;
+        }
+
+        function alphabeta(node, alpha, beta) {
+            enqueueAction('activate', node.id);
+            nodesEvaluated++;
+
+            if (node.type === 'leaf') {
+                enqueueAction('evaluate', node.id, node.val);
+                return node.val;
+            }
+
+            let bestVal = node.type === 'max' ? -Infinity : Infinity;
+
+            for (let i = 0; i < node.children.length; i++) {
+                let child = node.children[i];
+                let val = alphabeta(child, alpha, beta);
+                
+                if (node.type === 'max') {
+                    bestVal = Math.max(bestVal, val);
+                    alpha = Math.max(alpha, bestVal);
+                } else {
+                    bestVal = Math.min(bestVal, val);
+                    beta = Math.min(beta, bestVal);
+                }
+
+                if (beta <= alpha) {
+                    for (let j = i + 1; j < node.children.length; j++) {
+                        pruneBranch(node.children[j]);
+                    }
+                    break;
+                }
+            }
+            enqueueAction('evaluate', node.id, bestVal);
+            return bestVal;
+        }
+
+        function pruneBranch(node) {
+            enqueueAction('prune', node.id);
+            if (node.children) node.children.forEach(pruneBranch);
+        }
+
+        async function processQueue() {
+            let currentEvals = 0;
+            for (let step of animationQueue) {
+                if (!isRunning) break;
+                
+                const el = document.getElementById(`node-${step.nodeId}`);
+                const line = document.getElementById(`line-${step.nodeId}`);
+                
+                if (step.action === 'activate') {
+                    el.classList.add('active');
+                } else if (step.action === 'evaluate') {
+                    el.classList.remove('active');
+                    el.classList.add('evaluated');
+                    el.innerText = step.value;
+                    currentEvals++;
+                    document.getElementById('statusText').innerText = `Nodes Evaluated: ${currentEvals} | Final Value: ?`;
+                } else if (step.action === 'prune') {
+                    el.classList.add('pruned');
+                    if (line) line.classList.add('pruned');
+                }
+                
+                // Calculate delay based on slider (1 = slow, 10 = fast)
+                const speed = document.getElementById('speedSlider').value;
+                const delay = 1100 - (speed * 100); 
+                await new Promise(r => setTimeout(r, delay)); 
+            }
+            
+            if (isRunning) {
+                const rootVal = document.getElementById('node-root').innerText;
+                document.getElementById('statusText').innerText = `Nodes Evaluated: ${currentEvals} | Final Value: ${rootVal}`;
+                document.getElementById('btnMinimax').disabled = false;
+                document.getElementById('btnAlphaBeta').disabled = false;
+            }
+        }
+
+        function runSimulation(type) {
+            resetTree();
+            isRunning = true;
+            document.getElementById('btnMinimax').disabled = true;
+            document.getElementById('btnAlphaBeta').disabled = true;
+            
+            if (type === 'minimax') {
+                minimax(treeData);
+            } else {
+                alphabeta(treeData, -Infinity, Infinity);
+            }
+            processQueue();
+        }
+
+        resetTree();
+    </script>
+</body>
+</html>

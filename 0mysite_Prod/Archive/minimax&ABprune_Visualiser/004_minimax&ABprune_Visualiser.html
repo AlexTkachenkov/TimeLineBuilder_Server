@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha-Beta Builder & Visualizer</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #eef2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        
+        .toolbar {
+            background: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #2563eb;
+            color: white;
+            transition: all 0.2s;
+        }
+        button:hover { background-color: #1d4ed8; }
+        button:disabled { background-color: #cbd5e1; cursor: not-allowed; color: #94a3b8;}
+        
+        button.danger { background-color: #ef4444; }
+        button.danger:hover { background-color: #b91c1c; }
+
+        input[type="number"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 80px;
+        }
+
+        .divider { width: 2px; height: 30px; background: #e2e8f0; }
+
+        .status {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .instructions {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 15px;
+        }
+
+        .workspace {
+            position: relative;
+            flex-grow: 1;
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow: hidden;
+            border: 2px dashed #cbd5e1;
+        }
+
+        .node {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            background-color: white;
+            border: 3px solid #334155;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            z-index: 2;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            user-select: none;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .node:active { cursor: grabbing; }
+
+        .node.max { border-radius: 8px; } /* Max = Square */
+        .node.min { border-radius: 50%; } /* Min = Circle */
+        
+        .node.selected { border-color: #f59e0b; background-color: #fef3c7; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3); z-index: 3; }
+        .node.active-anim { background-color: #fcd34d; border-color: #d97706; transform: translate(-50%, -50%) scale(1.1); transition: all 0.3s;}
+        .node.evaluated { background-color: #22c55e; color: white; border-color: #166534; }
+        .node.pruned { background-color: #ef4444; color: white; border-color: #991b1b; opacity: 0.3; }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+        line {
+            stroke: #94a3b8;
+            stroke-width: 3;
+            transition: stroke 0.3s, opacity 0.3s;
+        }
+        line.pruned {
+            stroke: #ef4444;
+            stroke-dasharray: 6,6;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <button id="btnAddChild" disabled>+ Add Child</button>
+        <input type="number" id="inpValue" placeholder="Value" disabled>
+        <button id="btnSetValue" disabled>Set Leaf Value</button>
+        <button id="btnDelete" class="danger" disabled>Delete Node</button>
+        
+        <div class="divider"></div>
+        
+        <button id="btnRunMinimax">Run Minimax</button>
+        <button id="btnRunAlphaBeta">Run Alpha-Beta</button>
+        <button id="btnResetAnim" style="background-color: #64748b;">Reset Animation</button>
+        
+        <div class="divider"></div>
+        
+        <label for="speedSlider" style="font-weight: 600;">Speed:</label>
+        <input type="range" id="speedSlider" min="1" max="10" value="7">
+    </div>
+    
+    <div class="status" id="statusText">Nodes Evaluated: 0 | Final Value: ?</div>
+    <div class="instructions">Click a node to select it. Drag to move. Max nodes are squares, Min nodes are circles. Every leaf (node with no children) must have a value before running.</div>
+
+    <div class="workspace" id="workspace">
+        <svg id="linesCanvas"></svg>
+        <div id="nodesContainer"></div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let nodes = {
+            'root': { id: 'root', type: 'max', x: 600, y: 60, children: [], val: null, parent: null }
+        };
+        let nodeCounter = 1;
+        let selectedNodeId = null;
+        let isDragging = false;
+        let dragTarget = null;
+        
+        // Animation State
+        let animationQueue = [];
+        let isRunning = false;
+        let nodesEvaluated = 0;
+
+        // --- DOM Elements ---
+        const workspace = document.getElementById('workspace');
+        const nodesContainer = document.getElementById('nodesContainer');
+        const linesCanvas = document.getElementById('linesCanvas');
+        const statusText = document.getElementById('statusText');
+        
+        // Toolbar
+        const btnAddChild = document.getElementById('btnAddChild');
+        const inpValue = document.getElementById('inpValue');
+        const btnSetValue = document.getElementById('btnSetValue');
+        const btnDelete = document.getElementById('btnDelete');
+        const btnRunMinimax = document.getElementById('btnRunMinimax');
+        const btnRunAlphaBeta = document.getElementById('btnRunAlphaBeta');
+        const btnResetAnim = document.getElementById('btnResetAnim');
+
+        // --- Initialization & UI Updates ---
+        function init() {
+            renderTree();
+            updateToolbar();
+        }
+
+        function updateToolbar() {
+            const hasSelection = selectedNodeId !== null;
+            const node = hasSelection ? nodes[selectedNodeId] : null;
+            
+            btnAddChild.disabled = !hasSelection || isRunning;
+            btnDelete.disabled = !hasSelection || selectedNodeId === 'root' || isRunning;
+            
+            const isLeaf = hasSelection && node.children.length === 0;
+            inpValue.disabled = !hasSelection || !isLeaf || isRunning;
+            btnSetValue.disabled = !hasSelection || !isLeaf || isRunning;
+            
+            if (hasSelection && isLeaf) {
+                inpValue.value = node.val !== null ? node.val : '';
+            } else {
+                inpValue.value = '';
+            }
+
+            btnRunMinimax.disabled = isRunning;
+            btnRunAlphaBeta.disabled = isRunning;
+        }
+
+        function renderTree() {
+            nodesContainer.innerHTML = '';
+            linesCanvas.innerHTML = '';
+
+            for (let id in nodes) {
+                const node = nodes[id];
+                
+                // Draw DOM Node
+                const div = document.createElement('div');
+                div.className = `node ${node.type}`;
+                if (id === selectedNodeId) div.classList.add('selected');
+                div.id = `node-${id}`;
+                div.style.left = `${node.x}px`;
+                div.style.top = `${node.y}px`;
+                
+                // Content: value if it's a leaf and has one, otherwise empty
+                if (node.children.length === 0 && node.val !== null) {
+                    div.innerText = node.val;
+                    div.style.borderColor = '#16a34a'; // Green border for ready leaves
+                } else {
+                    div.innerText = '';
+                }
+
+                // Dragging Events
+                div.addEventListener('mousedown', (e) => startDrag(e, id));
+                
+                nodesContainer.appendChild(div);
+
+                // Draw SVG Lines to children
+                node.children.forEach(childId => {
+                    const child = nodes[childId];
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', node.x); line.setAttribute('y1', node.y);
+                    line.setAttribute('x2', child.x); line.setAttribute('y2', child.y);
+                    line.id = `line-${node.id}-${child.id}`;
+                    linesCanvas.appendChild(line);
+                });
+            }
+        }
+
+        // --- Interaction Logic ---
+        function selectNode(id) {
+            if (isRunning) return;
+            selectedNodeId = id;
+            renderTree();
+            updateToolbar();
+            if (nodes[id].children.length === 0) {
+                inpValue.focus(); // Auto-focus input when a leaf is selected
+            }
+        }
+
+        function startDrag(e, id) {
+            if (isRunning) return;
+            isDragging = true;
+            dragTarget = id;
+            selectNode(id);
+            e.stopPropagation();
+        }
+
+        workspace.addEventListener('mousemove', (e) => {
+            if (!isDragging || !dragTarget) return;
+            const rect = workspace.getBoundingClientRect();
+            let newX = e.clientX - rect.left;
+            let newY = e.clientY - rect.top;
+            
+            nodes[dragTarget].x = newX;
+            nodes[dragTarget].y = newY;
+            
+            // Only update DOM for performance, not full re-render
+            const domNode = document.getElementById(`node-${dragTarget}`);
+            domNode.style.left = `${newX}px`;
+            domNode.style.top = `${newY}px`;
+            
+            // Update lines
+            const node = nodes[dragTarget];
+            if (node.parent) {
+                const line = document.getElementById(`line-${node.parent}-${dragTarget}`);
+                if(line) { line.setAttribute('x2', newX); line.setAttribute('y2', newY); }
+            }
+            node.children.forEach(childId => {
+                const line = document.getElementById(`line-${dragTarget}-${childId}`);
+                if(line) { line.setAttribute('x1', newX); line.setAttribute('y1', newY); }
+            });
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            dragTarget = null;
+        });
+
+        workspace.addEventListener('mousedown', () => {
+            if (isRunning) return;
+            selectedNodeId = null;
+            renderTree();
+            updateToolbar();
+        });
+
+        // --- Toolbar Actions ---
+
+        // NEW LOGIC: Pass down the typed value to the child
+        btnAddChild.addEventListener('click', () => {
+            if (!selectedNodeId) return;
+            const parent = nodes[selectedNodeId];
+            const newId = `n${nodeCounter++}`;
+            
+            // Capture whatever is in the text box right now
+            let parsedVal = parseInt(inpValue.value);
+            let childVal = isNaN(parsedVal) ? null : parsedVal;
+            
+            // Auto layout offset
+            const offset = parent.children.length % 2 === 0 ? -60 : 60;
+            const childCount = Math.floor(parent.children.length / 2);
+            
+            nodes[newId] = {
+                id: newId,
+                type: parent.type === 'max' ? 'min' : 'max', // Alternate turns
+                x: parent.x + offset + (childCount * 40 * Math.sign(offset)), 
+                y: parent.y + 80,
+                children: [],
+                val: childVal, // Assign captured value to the new child
+                parent: selectedNodeId
+            };
+            
+            parent.children.push(newId);
+            parent.val = null; // Parent disregards its own value since it is no longer a leaf
+            
+            selectNode(newId); // Auto select new node
+        });
+
+        btnSetValue.addEventListener('click', () => {
+            if (!selectedNodeId) return;
+            const val = parseInt(inpValue.value);
+            if (!isNaN(val)) {
+                nodes[selectedNodeId].val = val;
+                renderTree();
+            }
+        });
+
+        // QOL: Allow pressing Enter in the input box to set the value
+        inpValue.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                btnSetValue.click();
+            }
+        });
+
+        function deleteNodeRec(id) {
+            const node = nodes[id];
+            node.children.forEach(childId => deleteNodeRec(childId));
+            delete nodes[id];
+        }
+
+        btnDelete.addEventListener('click', () => {
+            if (!selectedNodeId || selectedNodeId === 'root') return;
+            const parentId = nodes[selectedNodeId].parent;
+            // Remove from parent's children array
+            nodes[parentId].children = nodes[parentId].children.filter(id => id !== selectedNodeId);
+            // Recursively delete
+            deleteNodeRec(selectedNodeId);
+            selectedNodeId = null;
+            renderTree();
+            updateToolbar();
+        });
+
+        // --- Algorithm Simulation ---
+        function validateTree(nodeId) {
+            const node = nodes[nodeId];
+            if (node.children.length === 0) {
+                if (node.val === null) return false;
+            } else {
+                for (let childId of node.children) {
+                    if (!validateTree(childId)) return false;
+                }
+            }
+            return true;
+        }
+
+        function resetAnimationState() {
+            isRunning = false;
+            animationQueue = [];
+            nodesEvaluated = 0;
+            statusText.innerText = 'Nodes Evaluated: 0 | Final Value: ?';
+            
+            // Strip classes
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('active-anim', 'evaluated', 'pruned');
+                const id = el.id.replace('node-', '');
+                if (nodes[id].children.length > 0) el.innerText = ''; // clear calc values
+            });
+            document.querySelectorAll('line').forEach(el => el.classList.remove('pruned'));
+            
+            updateToolbar();
+        }
+
+        function enqueueAction(action, id, val = null) {
+            animationQueue.push({ action, id, val });
+        }
+
+        function runAlgorithm(type) {
+            if (!validateTree('root')) {
+                alert("Cannot run! All leaf nodes (bottom-most nodes) must have a numeric value set.");
+                return;
+            }
+            
+            resetAnimationState();
+            isRunning = true;
+            selectedNodeId = null;
+            renderTree();
+            updateToolbar();
+
+            if (type === 'minimax') {
+                algoMinimax('root');
+            } else {
+                algoAlphaBeta('root', -Infinity, Infinity);
+            }
+            
+            processAnimationQueue();
+        }
+
+        function algoMinimax(nodeId) {
+            const node = nodes[nodeId];
+            enqueueAction('activate', nodeId);
+            nodesEvaluated++;
+
+            if (node.children.length === 0) {
+                enqueueAction('evaluate', nodeId, node.val);
+                return node.val;
+            }
+
+            let bestVal = node.type === 'max' ? -Infinity : Infinity;
+            
+            for (let childId of node.children) {
+                let val = algoMinimax(childId);
+                bestVal = node.type === 'max' ? Math.max(bestVal, val) : Math.min(bestVal, val);
+            }
+            
+            enqueueAction('evaluate', nodeId, bestVal);
+            return bestVal;
+        }
+
+        function algoAlphaBeta(nodeId, alpha, beta) {
+            const node = nodes[nodeId];
+            enqueueAction('activate', nodeId);
+            nodesEvaluated++;
+
+            if (node.children.length === 0) {
+                enqueueAction('evaluate', nodeId, node.val);
+                return node.val;
+            }
+
+            let bestVal = node.type === 'max' ? -Infinity : Infinity;
+
+            for (let i = 0; i < node.children.length; i++) {
+                let childId = node.children[i];
+                let val = algoAlphaBeta(childId, alpha, beta);
+
+                if (node.type === 'max') {
+                    bestVal = Math.max(bestVal, val);
+                    alpha = Math.max(alpha, bestVal);
+                } else {
+                    bestVal = Math.min(bestVal, val);
+                    beta = Math.min(beta, bestVal);
+                }
+
+                if (beta <= alpha) {
+                    // Prune remaining children
+                    for (let j = i + 1; j < node.children.length; j++) {
+                        pruneSubtree(node.children[j], nodeId);
+                    }
+                    break;
+                }
+            }
+            enqueueAction('evaluate', nodeId, bestVal);
+            return bestVal;
+        }
+
+        function pruneSubtree(nodeId, parentId) {
+            enqueueAction('prune', nodeId, parentId);
+            nodes[nodeId].children.forEach(childId => pruneSubtree(childId, nodeId));
+        }
+
+        async function processAnimationQueue() {
+            let currentEvals = 0;
+            
+            for (let step of animationQueue) {
+                if (!isRunning) return;
+
+                const domNode = document.getElementById(`node-${step.id}`);
+                
+                if (step.action === 'activate') {
+                    domNode.classList.add('active-anim');
+                } 
+                else if (step.action === 'evaluate') {
+                    domNode.classList.remove('active-anim');
+                    domNode.classList.add('evaluated');
+                    domNode.innerText = step.val;
+                    currentEvals++;
+                    statusText.innerText = `Nodes Evaluated: ${currentEvals} | Final Value: ?`;
+                } 
+                else if (step.action === 'prune') {
+                    domNode.classList.add('pruned');
+                    const line = document.getElementById(`line-${step.val}-${step.id}`);
+                    if (line) line.classList.add('pruned');
+                }
+
+                const speed = document.getElementById('speedSlider').value;
+                const delay = 1100 - (speed * 100);
+                await new Promise(r => setTimeout(r, delay));
+            }
+
+            if (isRunning) {
+                const rootVal = document.getElementById('node-root').innerText;
+                statusText.innerText = `Nodes Evaluated: ${currentEvals} | Final Value: ${rootVal}`;
+                isRunning = false;
+                updateToolbar();
+            }
+        }
+
+        btnRunMinimax.addEventListener('click', () => runAlgorithm('minimax'));
+        btnRunAlphaBeta.addEventListener('click', () => runAlgorithm('alphabeta'));
+        btnResetAnim.addEventListener('click', resetAnimationState);
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
