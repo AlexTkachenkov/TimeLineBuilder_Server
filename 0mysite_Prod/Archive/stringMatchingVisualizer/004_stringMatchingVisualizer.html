@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrollable String Matching Visualizer</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input[type="text"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 16px;
+        }
+        #textInput { width: 350px; } 
+        #patternInput { width: 120px; }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        .playback-controls {
+            display: flex;
+            gap: 5px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .playback-btn { background-color: #6c757d; font-weight: bold; }
+        .playback-btn:hover { background-color: #5a6268; }
+        .play-btn { background-color: #28a745; width: 100px; }
+        .play-btn:hover { background-color: #218838; }
+
+        .slider-container {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+        }
+
+        .status {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            height: 24px;
+        }
+
+        .hash-info {
+            font-size: 16px;
+            margin-bottom: 20px;
+            height: 20px;
+            color: #555;
+            font-family: monospace;
+        }
+
+        /* --- THE SCROLLABLE VIEWPORT --- */
+        .viewport-wrapper {
+            width: 800px;
+            height: 240px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow-x: auto; /* Allows manual scrolling! */
+            overflow-y: hidden;
+            scroll-behavior: smooth; /* Smooth programmatic scrolling */
+        }
+
+        /* The canvas that expands to fit the long string */
+        .canvas {
+            position: relative;
+            padding: 40px;
+            width: max-content; /* Grows based on content */
+            min-width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .string-row {
+            display: flex;
+            position: relative;
+        }
+
+        .pattern-row {
+            display: flex;
+            position: absolute;
+            top: 100px; /* Positions below the text */
+            transition: transform 0.25s ease-in-out;
+        }
+
+        .char-box {
+            box-sizing: border-box;
+            min-width: 40px; 
+            height: 40px;
+            background-color: #fff;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin-right: 5px; 
+            border-radius: 4px;
+            transition: background-color 0.1s, border-color 0.1s;
+        }
+
+        /* Highlighting States */
+        .char-box.comparing { background-color: #ffeb3b; border-color: #fbc02d; box-shadow: 0 0 10px #ffeb3b; }
+        .char-box.match { background-color: #4caf50; color: white; border-color: #388e3c; }
+        .char-box.mismatch { background-color: #f44336; color: white; border-color: #d32f2f; }
+        .char-box.found { background-color: #9c27b0; color: white; border-color: #7b1fa2; }
+
+        /* Custom Scrollbar for better visibility */
+        .viewport-wrapper::-webkit-scrollbar { height: 12px; }
+        .viewport-wrapper::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 0 0 10px 10px; }
+        .viewport-wrapper::-webkit-scrollbar-thumb { background: #888; border-radius: 6px; }
+        .viewport-wrapper::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Scrollable String Matching Visualizer</h1>
+    
+    <div class="controls">
+        <div class="input-group">
+            <label>Text (T):</label>
+            <input type="text" id="textInput" value="A VERY LONG TEXT STRING TO TEST THE SCROLL MECHANIC AND RABIN KARP ALGORITHM" maxlength="150">
+        </div>
+        <div class="input-group">
+            <label>Pattern (P):</label>
+            <input type="text" id="patternInput" value="SCROLL" maxlength="15">
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="btnNaive" onclick="runSimulation('naive')">Run Naive Matcher</button>
+        <button id="btnRK" onclick="runSimulation('rk')">Run Rabin-Karp</button>
+        <button onclick="resetVisualization()">Reset</button>
+    </div>
+
+    <div class="controls">
+        <div class="playback-controls" id="playbackControls" style="display: none;">
+            <button class="playback-btn" onclick="stepBackward()">&#9664; Step Back</button>
+            <button class="play-btn" id="btnPlayPause" onclick="togglePlay()">Pause</button>
+            <button class="playback-btn" onclick="stepForward()">Step Forward &#9654;</button>
+        </div>
+        
+        <div class="slider-container" id="speedContainer" style="display: none;">
+            <label for="speedSlider">Speed:</label>
+            <input type="range" id="speedSlider" min="1" max="10" value="7">
+        </div>
+    </div>
+    
+    <div class="status" id="statusText">Comparisons: 0 | Matches found: 0</div>
+    <div class="hash-info" id="hashText"></div>
+
+    <div class="viewport-wrapper" id="scrollViewport">
+        <div class="canvas">
+            <div id="textString" class="string-row"></div>
+            <div id="patternString" class="pattern-row"></div>
+        </div>
+    </div>
+
+    <script>
+        let animationQueue = [];
+        let isPlaying = false;
+        let currentStepIndex = -1;
+        let playTimeout = null;
+        
+        const boxWidthAndMargin = 45; // 40px width + 5px margin
+
+        function initStrings() {
+            const T = document.getElementById('textInput').value.toUpperCase();
+            const P = document.getElementById('patternInput').value.toUpperCase();
+            
+            const textDiv = document.getElementById('textString');
+            const patternDiv = document.getElementById('patternString');
+            
+            textDiv.innerHTML = '';
+            patternDiv.innerHTML = '';
+            
+            for(let i = 0; i < T.length; i++) {
+                const box = document.createElement('div');
+                box.className = 'char-box';
+                box.id = `t-${i}`;
+                box.innerText = T[i] === ' ' ? '\u00A0' : T[i]; 
+                textDiv.appendChild(box);
+            }
+            
+            for(let i = 0; i < P.length; i++) {
+                const box = document.createElement('div');
+                box.className = 'char-box';
+                box.id = `p-${i}`;
+                box.innerText = P[i] === ' ' ? '\u00A0' : P[i];
+                patternDiv.appendChild(box);
+            }
+
+            document.getElementById('patternString').style.transform = `translateX(0px)`;
+            document.getElementById('scrollViewport').scrollLeft = 0;
+            
+            return { T, P };
+        }
+
+        function resetVisualization() {
+            clearTimeout(playTimeout);
+            initStrings();
+            
+            document.getElementById('statusText').innerText = 'Comparisons: 0 | Matches found: 0';
+            document.getElementById('hashText').innerText = '';
+            document.getElementById('playbackControls').style.display = 'none';
+            document.getElementById('speedContainer').style.display = 'none';
+            
+            animationQueue = [];
+            currentStepIndex = -1;
+            isPlaying = false;
+            enableButtons(true);
+        }
+
+        function enableButtons(enable) {
+            document.getElementById('btnNaive').disabled = !enable;
+            document.getElementById('btnRK').disabled = !enable;
+            document.getElementById('textInput').disabled = !enable;
+            document.getElementById('patternInput').disabled = !enable;
+        }
+
+        function enqueueAction(action) {
+            animationQueue.push(action);
+        }
+
+        // --- NAIVE ALGORITHM ---
+        function naiveMatcher(T, P) {
+            let n = T.length;
+            let m = P.length;
+
+            for (let s = 0; s <= n - m; s++) {
+                enqueueAction({ type: 'shift', s });
+                let match = true;
+                
+                for (let i = 0; i < m; i++) {
+                    enqueueAction({ type: 'compare', s, i });
+                    if (P[i] !== T[s + i]) {
+                        enqueueAction({ type: 'mismatch', s, i });
+                        match = false;
+                        break; 
+                    } else {
+                        enqueueAction({ type: 'match_char', s, i });
+                    }
+                }
+                if (match) enqueueAction({ type: 'match_found', s, m });
+            }
+        }
+
+        // --- RABIN-KARP ALGORITHM ---
+        function rabinKarpMatcher(T, P) {
+            let n = T.length;
+            let m = P.length;
+            if (m === 0 || m > n) return;
+
+            let d = 256; 
+            let q = 11; 
+            let h = 1;
+            
+            for (let i = 0; i < m - 1; i++) h = (h * d) % q;
+
+            let pHash = 0;
+            let tHash = 0;
+
+            for (let i = 0; i < m; i++) {
+                pHash = (d * pHash + P.charCodeAt(i)) % q;
+                tHash = (d * tHash + T.charCodeAt(i)) % q;
+            }
+
+            for (let s = 0; s <= n - m; s++) {
+                enqueueAction({ type: 'shift', s, pHash, m });
+
+                if (pHash === tHash) {
+                    enqueueAction({ type: 'hash_match', s, pHash, tHash, m });
+                    let match = true;
+                    
+                    for (let i = 0; i < m; i++) {
+                        enqueueAction({ type: 'compare', s, i });
+                        if (P[i] !== T[s + i]) {
+                            enqueueAction({ type: 'mismatch', s, i });
+                            match = false;
+                            break;
+                        } else {
+                            enqueueAction({ type: 'match_char', s, i });
+                        }
+                    }
+                    if (match) enqueueAction({ type: 'match_found', s, m });
+                } else {
+                    enqueueAction({ type: 'hash_mismatch', s, pHash, tHash, m });
+                }
+
+                if (s < n - m) {
+                    tHash = (d * (tHash - T.charCodeAt(s) * h) + T.charCodeAt(s + m)) % q;
+                    if (tHash < 0) tHash = (tHash + q);
+                }
+            }
+        }
+
+        function computeState(index) {
+            let state = { shift: 0, comparisons: 0, matchesFound: 0, hashText: "", hashColor: "#555", classes: {}, foundIndices: new Set() };
+            if (index < 0) return state;
+
+            for (let i = 0; i <= index; i++) {
+                const step = animationQueue[i];
+                if (step.type === 'shift') {
+                    state.shift = step.s;
+                    state.hashText = step.pHash !== undefined ? `Calculating Hashes... Window: ${step.s}` : "";
+                    state.hashColor = "#555";
+                } else if (step.type === 'hash_match') {
+                    state.hashText = `Hash P: ${step.pHash} | Hash T: ${step.tHash} - MATCH (Verify)`;
+                    state.hashColor = "#388e3c";
+                    state.comparisons++;
+                } else if (step.type === 'hash_mismatch') {
+                    state.hashText = `Hash P: ${step.pHash} | Hash T: ${step.tHash} - MISMATCH (Skip)`;
+                    state.hashColor = "#d32f2f";
+                    state.comparisons++;
+                } else if (step.type === 'compare') state.comparisons++;
+                else if (step.type === 'match_found') {
+                    for(let k = 0; k < step.m; k++) state.foundIndices.add(step.s + k);
+                    state.matchesFound++;
+                    state.hashText = `Pattern occurs with shift ${step.s}`;
+                    state.hashColor = "#7b1fa2";
+                }
+            }
+
+            const currentStep = animationQueue[index];
+            if (currentStep.type === 'compare') {
+                state.classes[`t-${currentStep.s + currentStep.i}`] = 'comparing';
+                state.classes[`p-${currentStep.i}`] = 'comparing';
+            } else if (currentStep.type === 'match_char') {
+                state.classes[`t-${currentStep.s + currentStep.i}`] = 'match';
+                state.classes[`p-${currentStep.i}`] = 'match';
+            } else if (currentStep.type === 'mismatch') {
+                state.classes[`t-${currentStep.s + currentStep.i}`] = 'mismatch';
+                state.classes[`p-${currentStep.i}`] = 'mismatch';
+            }
+
+            return state;
+        }
+
+        function renderState(state) {
+            document.querySelectorAll('.char-box').forEach(el => el.className = 'char-box'); 
+
+            state.foundIndices.forEach(idx => {
+                const el = document.getElementById(`t-${idx}`);
+                if (el) el.classList.add('found');
+            });
+
+            for (const [id, cls] of Object.entries(state.classes)) {
+                const el = document.getElementById(id);
+                if (el) el.classList.add(cls);
+            }
+
+            // Move the pattern forward over the text
+            document.getElementById('patternString').style.transform = `translateX(${state.shift * boxWidthAndMargin}px)`;
+            
+            // Programmatically scroll the viewport to follow the pattern (centers it slightly)
+            const viewport = document.getElementById('scrollViewport');
+            const patternX = state.shift * boxWidthAndMargin;
+            const targetScroll = patternX - (viewport.clientWidth / 2) + 100; // offset to keep it somewhat centered
+            
+            // Only force scroll if the pattern is moving out of comfortable view
+            if (Math.abs(viewport.scrollLeft - targetScroll) > 150) {
+                viewport.scrollLeft = targetScroll;
+            }
+
+            document.getElementById('statusText').innerText = `Comparisons: ${state.comparisons} | Matches found: ${state.matchesFound}`;
+            const hashEl = document.getElementById('hashText');
+            hashEl.innerText = state.hashText;
+            hashEl.style.color = state.hashColor;
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('btnPlayPause').innerText = isPlaying ? "Pause" : "Play";
+            if (isPlaying) {
+                if (currentStepIndex >= animationQueue.length - 1) currentStepIndex = -1;
+                playLoop();
+            } else clearTimeout(playTimeout);
+        }
+
+        function stepForward() {
+            isPlaying = false;
+            document.getElementById('btnPlayPause').innerText = "Play";
+            clearTimeout(playTimeout);
+            if (currentStepIndex < animationQueue.length - 1) {
+                currentStepIndex++;
+                renderState(computeState(currentStepIndex));
+            }
+        }
+
+        function stepBackward() {
+            isPlaying = false;
+            document.getElementById('btnPlayPause').innerText = "Play";
+            clearTimeout(playTimeout);
+            if (currentStepIndex > -1) {
+                currentStepIndex--;
+                renderState(computeState(currentStepIndex));
+            }
+        }
+
+        function playLoop() {
+            if (!isPlaying) return;
+            if (currentStepIndex < animationQueue.length - 1) {
+                currentStepIndex++;
+                const step = animationQueue[currentStepIndex];
+                renderState(computeState(currentStepIndex));
+                
+                const speed = document.getElementById('speedSlider').value;
+                let delay = 1100 - (speed * 100); 
+                
+                if(step.type === 'match_found') delay *= 2;
+                if(step.type === 'hash_match' || step.type === 'hash_mismatch' || step.type === 'mismatch') delay *= 1.5;
+
+                playTimeout = setTimeout(playLoop, delay);
+            } else {
+                isPlaying = false;
+                document.getElementById('btnPlayPause').innerText = "Play";
+                enableButtons(true);
+            }
+        }
+
+        function runSimulation(type) {
+            resetVisualization();
+            const { T, P } = initStrings();
+            if (T.length === 0 || P.length === 0 || P.length > T.length) { alert("Invalid length."); return; }
+
+            if (type === 'naive') naiveMatcher(T, P);
+            else rabinKarpMatcher(T, P);
+            
+            enableButtons(false);
+            document.getElementById('playbackControls').style.display = 'flex';
+            document.getElementById('speedContainer').style.display = 'flex';
+            
+            isPlaying = true;
+            document.getElementById('btnPlayPause').innerText = "Pause";
+            playLoop();
+        }
+
+        initStrings();
+    </script>
+</body>
+</html>
