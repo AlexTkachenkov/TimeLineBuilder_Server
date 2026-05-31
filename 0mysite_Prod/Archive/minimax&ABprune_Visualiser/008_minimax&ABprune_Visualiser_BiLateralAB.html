@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha-Beta Builder & Visualizer</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #eef2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        
+        .toolbar {
+            background: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 10;
+            max-width: 1400px;
+        }
+
+        button, select {
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+        
+        button {
+            background-color: #2563eb;
+            color: white;
+        }
+        
+        select {
+            background-color: white;
+            color: #333;
+            border-color: #ccc;
+        }
+
+        button:hover { background-color: #1d4ed8; }
+        button:disabled, select:disabled { background-color: #cbd5e1; cursor: not-allowed; color: #94a3b8; border-color: transparent; }
+        
+        button.danger { background-color: #ef4444; }
+        button.danger:hover { background-color: #b91c1c; }
+        
+        button.action { background-color: #8b5cf6; } 
+        button.action:hover { background-color: #7c3aed; }
+        
+        button.success { background-color: #10b981; } 
+        button.success:hover { background-color: #059669; }
+
+        .playback-controls {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .playback-btn { background-color: #64748b; font-weight: bold; }
+        .playback-btn:hover { background-color: #475569; }
+        .play-btn { background-color: #10b981; width: 80px; }
+        .play-btn:hover { background-color: #059669; }
+
+        input[type="number"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 70px;
+            font-size: 13px;
+        }
+
+        .divider { width: 2px; height: 30px; background: #e2e8f0; margin: 0 5px; }
+
+        .status {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .instructions {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 15px;
+        }
+
+        .workspace {
+            position: relative;
+            flex-grow: 1;
+            width: 100%;
+            max-width: 1400px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow: auto; 
+            border: 2px dashed #cbd5e1;
+        }
+        
+        #nodesContainer, #linesCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            min-width: 100%;
+            min-height: 100%;
+            transition: width 0.3s, height 0.3s;
+        }
+
+        .node {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            background-color: white;
+            border: 3px solid #334155;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            z-index: 2;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            user-select: none;
+            transition: background-color 0.2s, box-shadow 0.2s, top 0.4s ease-in-out, left 0.4s ease-in-out;
+        }
+        
+        .node:active { cursor: grabbing; transition: none; } 
+
+        .node.max { border-radius: 8px; } 
+        .node.min { border-radius: 50%; } 
+        
+        .node.selected { border-color: #f59e0b; background-color: #fef3c7; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3); z-index: 3; }
+        .node.active-anim { background-color: #fcd34d; border-color: #d97706; transform: translate(-50%, -50%) scale(1.1); transition: all 0.3s;}
+        .node.evaluated { background-color: #22c55e; color: white; border-color: #166534; }
+        .node.pruned { background-color: #ef4444; color: white; border-color: #991b1b; opacity: 0.3; }
+
+        .ab-label {
+            position: absolute;
+            top: -26px;
+            font-size: 11px;
+            font-family: monospace;
+            font-weight: bold;
+            color: #1e293b;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            white-space: nowrap;
+            pointer-events: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .node-val {
+            pointer-events: none;
+        }
+
+        svg { pointer-events: none; }
+        line {
+            stroke: #94a3b8;
+            stroke-width: 3;
+            transition: stroke 0.3s, opacity 0.3s, x1 0.4s, y1 0.4s, x2 0.4s, y2 0.4s;
+        }
+        line.pruned { stroke: #ef4444; stroke-dasharray: 6,6; opacity: 0.3; }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <button id="btnAddChild" disabled>+ Add Child</button>
+        <input type="number" id="inpValue" placeholder="Value" disabled>
+        <button id="btnDelete" class="danger" disabled>Delete</button>
+        
+        <div class="divider"></div>
+        
+        <label for="inpGenHeight" style="font-size: 13px; font-weight:600;">Height:</label>
+        <input type="number" id="inpGenHeight" value="3" min="1" max="6" style="width: 50px;">
+        <label for="inpGenBreadth" style="font-size: 13px; font-weight:600;">Max Breadth:</label>
+        <input type="number" id="inpGenBreadth" value="3" min="1" max="5" style="width: 50px;">
+        
+        <button id="btnGenTree" class="action">Gen Random Tree</button>
+        <button id="btnRandVals" class="success">Assign Random Leaves</button>
+
+        <div class="divider"></div>
+        
+        <label for="selDirection" style="font-size: 13px; font-weight:600;">Order:</label>
+        <select id="selDirection">
+            <option value="ltr">Left to Right</option>
+            <option value="rtl">Right to Left</option>
+        </select>
+        
+        <button id="btnRunMinimax">Run Minimax</button>
+        <button id="btnRunAlphaBeta">Run Alpha-Beta</button>
+        <button id="btnResetAnim" style="background-color: #64748b;">Reset State</button>
+        
+        <div class="divider" id="divPlayback" style="display: none;"></div>
+        
+        <div class="playback-controls" id="playbackControls" style="display: none;">
+            <button class="playback-btn" onclick="stepBackward()">&#9664; Step Back</button>
+            <button class="play-btn" id="btnPlayPause" onclick="togglePlay()">Pause</button>
+            <button class="playback-btn" onclick="stepForward()">Step Forward &#9654;</button>
+            
+            <label for="speedSlider" style="font-weight: 600; font-size: 13px; margin-left: 10px;">Speed:</label>
+            <input type="range" id="speedSlider" min="1" max="10" value="8">
+        </div>
+    </div>
+    
+    <div class="status" id="statusText">Nodes Evaluated: 0 | Final Value: ?</div>
+    <div class="instructions">Max nodes are squares, Min nodes are circles. Tree auto-layouts to prevent overlap.</div>
+
+    <div class="workspace" id="workspace">
+        <svg id="linesCanvas"></svg>
+        <div id="nodesContainer"></div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let nodes = {
+            'root': { id: 'root', type: 'max', x: 0, y: 0, children: [], val: null, parent: null }
+        };
+        let nodeCounter = 1;
+        let selectedNodeId = null;
+        let isDragging = false;
+        let dragTarget = null;
+        
+        const HORIZONTAL_SPACING = 65;
+        const VERTICAL_SPACING = 80;
+        const ROOT_Y_OFFSET = 60;
+
+        // --- Playback State ---
+        let animationQueue = [];
+        let isRunning = false;   
+        let isPlaying = false;   
+        let currentStepIndex = -1;
+        let playTimeout = null;
+
+        // --- DOM Elements ---
+        const workspace = document.getElementById('workspace');
+        const nodesContainer = document.getElementById('nodesContainer');
+        const linesCanvas = document.getElementById('linesCanvas');
+        const statusText = document.getElementById('statusText');
+        
+        const btnAddChild = document.getElementById('btnAddChild');
+        const inpValue = document.getElementById('inpValue');
+        const btnDelete = document.getElementById('btnDelete');
+        
+        const inpGenHeight = document.getElementById('inpGenHeight');
+        const inpGenBreadth = document.getElementById('inpGenBreadth');
+        const btnGenTree = document.getElementById('btnGenTree');
+        const btnRandVals = document.getElementById('btnRandVals');
+
+        const selDirection = document.getElementById('selDirection');
+        const btnRunMinimax = document.getElementById('btnRunMinimax');
+        const btnRunAlphaBeta = document.getElementById('btnRunAlphaBeta');
+        const btnResetAnim = document.getElementById('btnResetAnim');
+        const playbackControls = document.getElementById('playbackControls');
+        const divPlayback = document.getElementById('divPlayback');
+        const btnPlayPause = document.getElementById('btnPlayPause');
+
+        // --- Initialization & UI ---
+        function init() {
+            triggerLayout(); 
+            updateToolbar();
+        }
+
+        function triggerLayout() {
+            if (Object.keys(nodes).length === 0) return;
+
+            let globalLeafX = 60; 
+
+            function layoutNode(nodeId, depth) {
+                const node = nodes[nodeId];
+                node.y = ROOT_Y_OFFSET + depth * VERTICAL_SPACING;
+
+                if (node.children.length === 0) {
+                    node.x = globalLeafX;
+                    globalLeafX += HORIZONTAL_SPACING;
+                } else {
+                    let minX = Infinity;
+                    let maxX = -Infinity;
+                    for (let childId of node.children) {
+                        layoutNode(childId, depth + 1);
+                        minX = Math.min(minX, nodes[childId].x);
+                        maxX = Math.max(maxX, nodes[childId].x);
+                    }
+                    node.x = (minX + maxX) / 2;
+                }
+            }
+
+            layoutNode('root', 0);
+
+            let currentMaxX = 0;
+            let currentMaxY = 0;
+            for(let id in nodes) {
+                currentMaxX = Math.max(currentMaxX, nodes[id].x);
+                currentMaxY = Math.max(currentMaxY, nodes[id].y);
+            }
+
+            const visibleWidth = workspace.clientWidth;
+            let shiftX = 0;
+            
+            if (currentMaxX + 60 < visibleWidth) {
+                const rootX = nodes['root'].x;
+                shiftX = (visibleWidth / 2) - rootX;
+            }
+
+            let finalMaxX = 0;
+            let finalMaxY = 0;
+            for(let id in nodes) {
+                nodes[id].x += shiftX;
+                finalMaxX = Math.max(finalMaxX, nodes[id].x);
+                finalMaxY = Math.max(finalMaxY, nodes[id].y);
+            }
+
+            const containerWidth = Math.max(visibleWidth, finalMaxX + 80);
+            const containerHeight = Math.max(workspace.clientHeight, finalMaxY + 80);
+            
+            nodesContainer.style.width = `${containerWidth}px`;
+            nodesContainer.style.height = `${containerHeight}px`;
+            linesCanvas.style.width = `${containerWidth}px`;
+            linesCanvas.style.height = `${containerHeight}px`;
+
+            renderTree();
+        }
+
+        function updateToolbar() {
+            const hasSelection = selectedNodeId !== null;
+            const node = hasSelection ? nodes[selectedNodeId] : null;
+            
+            btnAddChild.disabled = !hasSelection || isRunning;
+            btnDelete.disabled = !hasSelection || selectedNodeId === 'root' || isRunning;
+            
+            const isLeaf = hasSelection && node.children.length === 0;
+            inpValue.disabled = !hasSelection || !isLeaf || isRunning;
+            
+            if (hasSelection && isLeaf) {
+                inpValue.value = node.val !== null ? node.val : '';
+            } else {
+                inpValue.value = '';
+            }
+
+            btnGenTree.disabled = isRunning;
+            btnRandVals.disabled = isRunning;
+            btnRunMinimax.disabled = isRunning;
+            btnRunAlphaBeta.disabled = isRunning;
+            selDirection.disabled = isRunning;
+            
+            playbackControls.style.display = isRunning ? 'flex' : 'none';
+            divPlayback.style.display = isRunning ? 'block' : 'none';
+        }
+
+        function renderTree() {
+            nodesContainer.innerHTML = '';
+            linesCanvas.innerHTML = '';
+
+            for (let id in nodes) {
+                const node = nodes[id];
+                
+                const div = document.createElement('div');
+                div.className = `node ${node.type}`;
+                if (id === selectedNodeId) div.classList.add('selected');
+                div.id = `node-${id}`;
+                div.style.left = `${node.x}px`;
+                div.style.top = `${node.y}px`;
+                
+                const valSpan = document.createElement('span');
+                valSpan.className = 'node-val';
+                if (node.children.length === 0 && node.val !== null) {
+                    valSpan.innerText = node.val;
+                    div.style.borderColor = '#16a34a'; 
+                }
+                div.appendChild(valSpan);
+
+                const abSpan = document.createElement('span');
+                abSpan.className = 'ab-label';
+                abSpan.style.display = 'none';
+                div.appendChild(abSpan);
+
+                div.addEventListener('mousedown', (e) => startDrag(e, id));
+                nodesContainer.appendChild(div);
+
+                node.children.forEach(childId => {
+                    const child = nodes[childId];
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', node.x); line.setAttribute('y1', node.y);
+                    line.setAttribute('x2', child.x); line.setAttribute('y2', child.y);
+                    line.id = `line-${node.id}-${child.id}`;
+                    linesCanvas.appendChild(line);
+                });
+            }
+        }
+
+        // --- Interaction & Dragging ---
+        function selectNode(id) {
+            if (isRunning) return;
+            selectedNodeId = id;
+            renderTree();
+            updateToolbar();
+            if (nodes[id].children.length === 0) inpValue.focus();
+        }
+
+        function startDrag(e, id) {
+            if (isRunning) return;
+            isDragging = true;
+            dragTarget = id;
+            selectNode(id);
+            e.stopPropagation();
+        }
+
+        workspace.addEventListener('mousemove', (e) => {
+            if (!isDragging || !dragTarget) return;
+            const rect = workspace.getBoundingClientRect();
+            let newX = e.clientX - rect.left + workspace.scrollLeft;
+            let newY = e.clientY - rect.top + workspace.scrollTop;
+            
+            nodes[dragTarget].x = newX;
+            nodes[dragTarget].y = newY;
+            
+            const domNode = document.getElementById(`node-${dragTarget}`);
+            domNode.style.left = `${newX}px`;
+            domNode.style.top = `${newY}px`;
+            
+            const node = nodes[dragTarget];
+            if (node.parent) {
+                const line = document.getElementById(`line-${node.parent}-${dragTarget}`);
+                if(line) { line.setAttribute('x2', newX); line.setAttribute('y2', newY); }
+            }
+            node.children.forEach(childId => {
+                const line = document.getElementById(`line-${dragTarget}-${childId}`);
+                if(line) { line.setAttribute('x1', newX); line.setAttribute('y1', newY); }
+            });
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            dragTarget = null;
+        });
+
+        workspace.addEventListener('mousedown', () => {
+            if (isRunning) return;
+            selectedNodeId = null;
+            renderTree();
+            updateToolbar();
+        });
+
+        // --- Manual Building Actions ---
+        btnAddChild.addEventListener('click', () => {
+            if (!selectedNodeId) return;
+            const parent = nodes[selectedNodeId];
+            const newId = `n${nodeCounter++}`;
+            
+            let parsedVal = parseInt(inpValue.value);
+            let childVal = isNaN(parsedVal) ? null : parsedVal;
+            
+            nodes[newId] = {
+                id: newId,
+                type: parent.type === 'max' ? 'min' : 'max', 
+                x: parent.x, y: parent.y + VERTICAL_SPACING, 
+                children: [],
+                val: childVal, 
+                parent: selectedNodeId
+            };
+            
+            parent.children.push(newId);
+            parent.val = null; 
+            
+            selectNode(newId); 
+            triggerLayout(); 
+        });
+
+        inpValue.addEventListener('keyup', (e) => {
+            if (!selectedNodeId) return;
+            const val = parseInt(inpValue.value);
+            nodes[selectedNodeId].val = isNaN(val) ? null : val;
+            if (e.key === 'Enter') renderTree();
+        });
+        
+        inpValue.addEventListener('blur', () => {
+            if (selectedNodeId) renderTree();
+        });
+
+        function deleteNodeRec(id) {
+            const node = nodes[id];
+            node.children.forEach(childId => deleteNodeRec(childId));
+            delete nodes[id];
+        }
+
+        btnDelete.addEventListener('click', () => {
+            if (!selectedNodeId || selectedNodeId === 'root') return;
+            const parentId = nodes[selectedNodeId].parent;
+            nodes[parentId].children = nodes[parentId].children.filter(id => id !== selectedNodeId);
+            deleteNodeRec(selectedNodeId);
+            selectedNodeId = null;
+            triggerLayout(); 
+            updateToolbar();
+        });
+
+        // --- Tree Generation Actions ---
+        btnGenTree.addEventListener('click', () => {
+            const targetHeight = parseInt(inpGenHeight.value) || 3;
+            const targetBreadth = parseInt(inpGenBreadth.value) || 3;
+            
+            const safeHeight = Math.min(Math.max(targetHeight, 1), 6);
+            const safeBreadth = Math.min(Math.max(targetBreadth, 1), 5);
+            
+            nodes = {};
+            nodeCounter = 1;
+            nodes['root'] = { id: 'root', type: 'max', x: 0, y: 0, children: [], val: null, parent: null };
+
+            function buildLevel(parentId, currentHeight) {
+                if (currentHeight >= safeHeight) return;
+                
+                const numBranches = (safeBreadth === 1) ? 1 : Math.floor(Math.random() * (safeBreadth - 1)) + 2; 
+                const parentNode = nodes[parentId];
+
+                for(let i = 0; i < numBranches; i++) {
+                    const newId = `n${nodeCounter++}`;
+                    nodes[newId] = {
+                        id: newId,
+                        type: parentNode.type === 'max' ? 'min' : 'max',
+                        x: 0, y: 0,
+                        children: [],
+                        val: null,
+                        parent: parentId
+                    };
+                    parentNode.children.push(newId);
+                    buildLevel(newId, currentHeight + 1);
+                }
+            }
+
+            buildLevel('root', 0);
+            selectedNodeId = null;
+            triggerLayout(); 
+            updateToolbar();
+        });
+
+        btnRandVals.addEventListener('click', () => {
+            for(let id in nodes) {
+                const node = nodes[id];
+                if (node.children.length === 0 && node.val === null) {
+                    node.val = Math.floor(Math.random() * 21) - 10; 
+                }
+            }
+            renderTree();
+            updateToolbar();
+        });
+
+        // --- Algorithm & State Management ---
+        function validateTree(nodeId) {
+            const node = nodes[nodeId];
+            if (node.children.length === 0) {
+                if (node.val === null) return false;
+            } else {
+                for (let childId of node.children) {
+                    if (!validateTree(childId)) return false;
+                }
+            }
+            return true;
+        }
+
+        function resetAnimationState() {
+            clearTimeout(playTimeout);
+            isRunning = false;
+            isPlaying = false;
+            animationQueue = [];
+            currentStepIndex = -1;
+            statusText.innerText = 'Nodes Evaluated: 0 | Final Value: ?';
+            
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('active-anim', 'evaluated', 'pruned');
+                const id = el.id.replace('node-', '');
+                if (nodes[id].children.length > 0) {
+                    const valSpan = el.querySelector('.node-val');
+                    if (valSpan) valSpan.innerText = ''; 
+                }
+                const abSpan = el.querySelector('.ab-label');
+                if (abSpan) abSpan.style.display = 'none';
+            });
+            document.querySelectorAll('line').forEach(el => el.classList.remove('pruned'));
+            
+            updateToolbar();
+        }
+
+        function enqueueAction(action, id, val = null, parentId = null, extra = null) {
+            animationQueue.push({ action, id, val, parentId, extra });
+        }
+
+        function runAlgorithm(type) {
+            if (!validateTree('root')) {
+                alert("Cannot run! All leaf nodes must have a numeric value set.");
+                return;
+            }
+            
+            resetAnimationState();
+            isRunning = true;
+            isPlaying = true;
+            selectedNodeId = null;
+            btnPlayPause.innerText = "Pause";
+            renderTree();
+            updateToolbar();
+            
+            const direction = selDirection.value;
+
+            if (type === 'minimax') algoMinimax('root', direction);
+            else algoAlphaBeta('root', -Infinity, Infinity, direction);
+            
+            playLoop();
+        }
+
+        // Standard Minimax
+        function algoMinimax(nodeId, direction) {
+            const node = nodes[nodeId];
+            enqueueAction('activate', nodeId);
+
+            if (node.children.length === 0) {
+                enqueueAction('evaluate', nodeId, node.val);
+                return node.val;
+            }
+
+            let bestVal = node.type === 'max' ? -Infinity : Infinity;
+            
+            let children = node.children;
+            let startIdx = direction === 'rtl' ? children.length - 1 : 0;
+            let endIdx = direction === 'rtl' ? -1 : children.length;
+            let step = direction === 'rtl' ? -1 : 1;
+
+            for (let i = startIdx; i !== endIdx; i += step) {
+                let childId = children[i];
+                let val = algoMinimax(childId, direction);
+                bestVal = node.type === 'max' ? Math.max(bestVal, val) : Math.min(bestVal, val);
+            }
+            
+            enqueueAction('evaluate', nodeId, bestVal);
+            return bestVal;
+        }
+
+        // Alpha-Beta
+        function algoAlphaBeta(nodeId, alpha, beta, direction) {
+            const node = nodes[nodeId];
+            enqueueAction('activate', nodeId);
+            enqueueAction('updateAB', nodeId, null, null, { alpha, beta });
+
+            if (node.children.length === 0) {
+                enqueueAction('evaluate', nodeId, node.val);
+                return node.val;
+            }
+
+            let bestVal = node.type === 'max' ? -Infinity : Infinity;
+            
+            let children = node.children;
+            let startIdx = direction === 'rtl' ? children.length - 1 : 0;
+            let endIdx = direction === 'rtl' ? -1 : children.length;
+            let step = direction === 'rtl' ? -1 : 1;
+            
+            for (let i = startIdx; i !== endIdx; i += step) {
+                let childId = children[i];
+                let val = algoAlphaBeta(childId, alpha, beta, direction);
+
+                let updatedAB = false;
+                if (node.type === 'max') {
+                    bestVal = Math.max(bestVal, val);
+                    if (bestVal > alpha) {
+                        alpha = bestVal;
+                        updatedAB = true;
+                    }
+                } else {
+                    bestVal = Math.min(bestVal, val);
+                    if (bestVal < beta) {
+                        beta = bestVal;
+                        updatedAB = true;
+                    }
+                }
+
+                if (updatedAB) {
+                    enqueueAction('updateAB', nodeId, null, null, { alpha, beta });
+                }
+
+                if (beta <= alpha) {
+                    // Prune all unvisited subtrees according to direction
+                    let pruneStart = i + step;
+                    for (let j = pruneStart; j !== endIdx; j += step) {
+                        pruneSubtree(children[j], nodeId);
+                    }
+                    break;
+                }
+            }
+            enqueueAction('evaluate', nodeId, bestVal);
+            return bestVal;
+        }
+
+        function pruneSubtree(nodeId, parentId) {
+            enqueueAction('prune', nodeId, parentId);
+            nodes[nodeId].children.forEach(childId => pruneSubtree(childId, nodeId));
+        }
+
+        // --- Playback Controls Engine ---
+        function computeState(index) {
+            let state = { evals: 0, nodeClasses: {}, nodeValues: {}, lineClasses: {}, finalVal: '?', nodeAB: {} };
+            if (index < 0) return state;
+
+            for(let i = 0; i <= index; i++) {
+                let step = animationQueue[i];
+                if (step.action === 'activate') {
+                    state.evals++;
+                    state.nodeClasses[step.id] = 'active-anim';
+                } else if (step.action === 'evaluate') {
+                    state.nodeClasses[step.id] = 'evaluated';
+                    state.nodeValues[step.id] = step.val;
+                    if (step.id === 'root') state.finalVal = step.val;
+                } else if (step.action === 'prune') {
+                    state.nodeClasses[step.id] = 'pruned';
+                    if (step.parentId) state.lineClasses[`line-${step.parentId}-${step.id}`] = 'pruned';
+                } else if (step.action === 'updateAB') {
+                    state.nodeAB[step.id] = step.extra;
+                }
+            }
+            return state;
+        }
+
+        function applyVisualState(state) {
+            // Strip classes
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('active-anim', 'evaluated', 'pruned');
+                const id = el.id.replace('node-', '');
+                if (nodes[id].children.length > 0) {
+                    const valSpan = el.querySelector('.node-val');
+                    if (valSpan) valSpan.innerText = ''; 
+                }
+                const abSpan = el.querySelector('.ab-label');
+                if (abSpan) abSpan.style.display = 'none';
+            });
+            document.querySelectorAll('line').forEach(el => el.classList.remove('pruned'));
+
+            // Apply classes
+            for(let id in state.nodeClasses) {
+                const el = document.getElementById(`node-${id}`);
+                if(el) el.classList.add(state.nodeClasses[id]);
+            }
+            for(let id in state.nodeValues) {
+                const el = document.getElementById(`node-${id}`);
+                if(el) {
+                    const valSpan = el.querySelector('.node-val');
+                    if(valSpan) valSpan.innerText = state.nodeValues[id];
+                }
+            }
+            for(let id in state.nodeAB) {
+                const el = document.getElementById(`node-${id}`);
+                if(el) {
+                    const abSpan = el.querySelector('.ab-label');
+                    if(abSpan) {
+                        abSpan.style.display = 'block';
+                        const a = state.nodeAB[id].alpha;
+                        const b = state.nodeAB[id].beta;
+                        const formatAB = v => v === Infinity ? '∞' : (v === -Infinity ? '-∞' : v);
+                        abSpan.innerHTML = `<span style="color:#dc2626">α: ${formatAB(a)}</span> | <span style="color:#2563eb">β: ${formatAB(b)}</span>`;
+                    }
+                }
+            }
+            for(let lineId in state.lineClasses) {
+                const el = document.getElementById(lineId);
+                if(el) el.classList.add(state.lineClasses[lineId]);
+            }
+            
+            statusText.innerText = `Nodes Evaluated: ${state.evals} | Final Value: ${state.finalVal}`;
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            btnPlayPause.innerText = isPlaying ? "Pause" : "Play";
+            if (isPlaying) {
+                if (currentStepIndex >= animationQueue.length - 1) {
+                    currentStepIndex = -1; // restart if at end
+                }
+                playLoop();
+            } else {
+                clearTimeout(playTimeout);
+            }
+        }
+
+        function stepForward() {
+            isPlaying = false;
+            btnPlayPause.innerText = "Play";
+            clearTimeout(playTimeout);
+            if (currentStepIndex < animationQueue.length - 1) {
+                currentStepIndex++;
+                applyVisualState(computeState(currentStepIndex));
+            }
+        }
+
+        function stepBackward() {
+            isPlaying = false;
+            btnPlayPause.innerText = "Play";
+            clearTimeout(playTimeout);
+            if (currentStepIndex > -1) {
+                currentStepIndex--;
+                applyVisualState(computeState(currentStepIndex));
+            }
+        }
+
+        function playLoop() {
+            if (!isPlaying) return;
+            
+            if (currentStepIndex < animationQueue.length - 1) {
+                currentStepIndex++;
+                applyVisualState(computeState(currentStepIndex));
+                
+                const speed = document.getElementById('speedSlider').value;
+                const delay = 1100 - (speed * 100);
+                playTimeout = setTimeout(playLoop, delay);
+            } else {
+                isPlaying = false;
+                btnPlayPause.innerText = "Play";
+            }
+        }
+
+        btnRunMinimax.addEventListener('click', () => runAlgorithm('minimax'));
+        btnRunAlphaBeta.addEventListener('click', () => runAlgorithm('alphabeta'));
+        btnResetAnim.addEventListener('click', resetAnimationState);
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
