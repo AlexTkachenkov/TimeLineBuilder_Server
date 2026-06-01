@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Android Server</title>
+    <style>
+      /* Define colors for Light Mode (Default) */
+      :root {
+        --bg-color: #f0f0f0;
+        --card-bg: white;
+        --text-main: #333;
+        --text-secondary: #666;
+        --link-color: #333;
+        --link-hover: #007bff;
+        --shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Define colors for Dark Mode */
+      body.dark {
+        --bg-color: #0f172a; /* Slate 900 */
+        --card-bg: #1e293b; /* Slate 800 */
+        --text-main: #f1f5f9; /* Slate 100 */
+        --text-secondary: #94a3b8; /* Slate 400 */
+        --link-color: #f8fafc;
+        --link-hover: #60a5fa; /* Blue 400 */
+        --shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+      }
+
+      body {
+        font-family: sans-serif;
+        padding: 40px;
+        background: var(--bg-color);
+        color: var(--text-main);
+        transition:
+          background-color 0.3s ease,
+          color 0.3s ease;
+        margin: 0;
+        position: relative;
+      }
+
+      h1 {
+        margin-bottom: 30px;
+      }
+
+      .card {
+        background: var(--card-bg);
+        padding: 20px;
+        margin: 15px 0;
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        transition:
+          transform 0.2s,
+          background-color 0.3s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+      }
+
+      .card p {
+        color: var(--text-secondary);
+        margin-top: 5px;
+        margin-bottom: 0;
+      }
+
+      a {
+        text-decoration: none;
+        color: var(--link-color);
+        font-weight: bold;
+        font-size: 1.2rem;
+        transition: color 0.2s;
+        display: inline-block;
+      }
+
+      a:hover {
+        color: var(--link-hover);
+      }
+
+      /* Toggle Button Styles */
+      .theme-toggle {
+        position: absolute;
+        top: 25px;
+        right: 25px;
+        background: var(--card-bg);
+        border: none;
+        cursor: pointer;
+        padding: 10px;
+        border-radius: 50%;
+        box-shadow: var(--shadow);
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        z-index: 100;
+      }
+
+      .theme-toggle:hover {
+        transform: scale(1.1);
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 20px;
+        }
+        .theme-toggle {
+          top: 15px;
+          right: 15px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Toggle Button -->
+    <button
+      class="theme-toggle"
+      id="theme-toggle"
+      aria-label="Toggle Dark Mode"
+      title="Toggle Dark Mode"
+    >
+      <!-- Sun Icon (shown in dark mode) -->
+      <svg
+        id="sun-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        style="display: none"
+      >
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <!-- Moon Icon (shown in light mode) -->
+      <svg
+        id="moon-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+
+    <h1>🚀 My Galaxy J8 Server</h1>
+    <h2>this server is hosted on an Android smartphone!</h2>
+
+    <div class="card">
+      <a href="/Pushup-tracker/">💪 Pushup Tracker</a>
+      <p>A Firebase-based tool for a "drinking" game</p>
+    </div>
+
+    <div class="card">
+      <a href="/MathMastery/">🧮 MathMastery</a>
+      <p>A React-based math game.</p>
+    </div>
+
+    <div class="card">
+      <a href="/Timeline/">📅 Vertical Timeline Builder</a>
+      <p>A React-based hierarchical timeline tool.</p>
+    </div>
+
+    <div class="card">
+      <a href="/Horizontal_timeline/">📅 Horizontal Timeline Builder</a>
+      <p>A React-based hierarchical timeline tool.</p>
+    </div>
+
+    <div class="card">
+      <a href="/Flipping_Timeline_Testbed/">📅 Flipping Timeline Beta </a>
+      <p>Testbed for new pages.</p>
+    </div>
+
+    <div class="card">
+      <a href="/MyCloud/">📅 Mycloud Project </a>
+      <p>Testbed for new pages.</p>
+    </div>
+
+    <div class="card">
+      <a href="/Testbed/">📅 Test Plot </a>
+      <p>Testbed for new pages.</p>
+    </div>
+
+    <div class="card">
+      <a href="/Archive/">🕒 Archive </a>
+      <p>Archive for all the old files.</p>
+    </div>
+
+    <div class="card">
+      <a href="https://alextkachenkov.github.io/Web-and-Cloud-HW1-submission">🕒 Archive </a>
+      <p>link to my github page for the 1st web and cloud course homework assignment, focusing on foundational HTML structure, tag implementation, and basic object positioning.</p>
+    </div>
+
+    <div class="card">
+      <a href="https://github.com/AlexTkachenkov/Web-and-Cloud-HW1-submission">🕒 Archive </a>
+      <p>link to the GitHub repo</p>
+    </div>
+    
+
+
+
+    <!-- <div class="card">
+      <a href="/lol/">📅 lorem ipsum</a>
+      <p>A React-based hierarchical timeline tool.</p>
+    </div> -->
+
+    <script>
+      const toggleButton = document.getElementById("theme-toggle");
+      const body = document.body;
+      const sunIcon = document.getElementById("sun-icon");
+      const moonIcon = document.getElementById("moon-icon");
+
+      // Function to update icon visibility
+      function updateIcons(isDark) {
+        if (isDark) {
+          sunIcon.style.display = "block";
+          moonIcon.style.display = "none";
+        } else {
+          sunIcon.style.display = "none";
+          moonIcon.style.display = "block";
+        }
+      }
+
+      // 1. Check LocalStorage for saved preference
+      const savedTheme = localStorage.getItem("theme");
+
+      // 2. Check System Preference if no local storage
+      const prefersDark =
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+      // Apply theme on load
+      if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
+        body.classList.add("dark");
+        updateIcons(true);
+      } else {
+        updateIcons(false);
+      }
+
+      // Toggle Event Listener
+      toggleButton.addEventListener("click", () => {
+        body.classList.toggle("dark");
+        const isDark = body.classList.contains("dark");
+
+        // Save preference
+        localStorage.setItem("theme", isDark ? "dark" : "light");
+
+        // Update Icon
+        updateIcons(isDark);
+      });
+    </script>
+  </body>
+</html>
