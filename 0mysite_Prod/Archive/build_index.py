@@ -4,6 +4,7 @@ import urllib.parse
 def generate_index():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     
+<<<<<<< HEAD
     # Store the top half of your HTML, including all styling and the theme toggle button
     html_top = """<!DOCTYPE html>
 <html lang="en">
@@ -171,6 +172,20 @@ def generate_index():
       });
     </script>
   </body>
+=======
+    # Store the top and bottom halves of your HTML
+    html_top = """<!DOCTYPE html>
+<html lang="en">
+<body>
+    <h1>🚀 My Galaxy J8 Server</h1>
+    <h2>this server is hosted on an Android smartphone!</h2>
+"""
+    html_bottom = """
+    <script>
+      // Insert your dark mode script here
+    </script>
+</body>
+>>>>>>> a532ea77be0dbf5119e2402def7a5eee0da9cf54
 </html>
 """
     
@@ -195,7 +210,10 @@ def generate_index():
                 file_url = urllib.parse.quote(file)
                 
                 dynamic_content += f'      <div class="card">\n'
+<<<<<<< HEAD
                 # This constructs the relative path exactly as needed (e.g., FolderName/FileName.html)
+=======
+>>>>>>> a532ea77be0dbf5119e2402def7a5eee0da9cf54
                 dynamic_content += f'        <a href="{folder_url}/{file_url}">📄 {display_name}</a>\n'
                 dynamic_content += f'      </div>\n'
                 
@@ -208,4 +226,8 @@ def generate_index():
     print("✅ index.html has been successfully generated!")
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     generate_index()
+=======
+    generate_index()
+>>>>>>> a532ea77be0dbf5119e2402def7a5eee0da9cf54
