@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KMP Prefix (π) Array Visualizer</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #eef2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+
+        /* --- TOOLBAR --- */
+        .toolbar {
+            background: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 10;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            width: 250px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: monospace;
+        }
+
+        button {
+            padding: 9px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            transition: all 0.2s;
+            background-color: #2563eb;
+            color: white;
+        }
+
+        button:hover { background-color: #1d4ed8; }
+        button:disabled { background-color: #cbd5e1; cursor: not-allowed; color: #94a3b8; }
+        
+        button.action { background-color: #8b5cf6; } 
+        button.action:hover { background-color: #7c3aed; }
+
+        .divider { width: 2px; height: 30px; background: #e2e8f0; margin: 0 5px; }
+
+        .playback-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .playback-btn { background-color: #64748b; }
+        .playback-btn:hover { background-color: #475569; }
+        .play-btn { background-color: #10b981; width: 80px; }
+        .play-btn:hover { background-color: #059669; }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        /* --- INFO BOARD --- */
+        .info-board {
+            width: 100%;
+            max-width: 1000px;
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 15px 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-sizing: border-box;
+        }
+
+        .info-stats {
+            display: flex;
+            justify-content: space-between;
+            font-family: monospace;
+            font-size: 16px;
+            background: #0f172a;
+            padding: 10px 15px;
+            border-radius: 5px;
+        }
+
+        .stat-item span { color: #38bdf8; font-weight: bold; }
+
+        .info-desc {
+            font-size: 18px;
+            font-weight: bold;
+            color: #e2e8f0;
+            text-align: center;
+            min-height: 28px;
+        }
+        .desc-highlight { color: #fcd34d; }
+        .desc-match { color: #4ade80; }
+        .desc-mismatch { color: #f87171; }
+        .desc-action { color: #c084fc; }
+
+        /* --- VISUALIZER WORKSPACE --- */
+        .workspace {
+            width: 100%;
+            max-width: 1000px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 2px solid #cbd5e1;
+            padding: 20px 0;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            flex-grow: 1;
+            position: relative;
+        }
+
+        .canvas {
+            position: relative;
+            padding: 40px 60px 80px 60px;
+            width: max-content;
+            min-width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .row-label {
+            position: absolute;
+            left: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #64748b;
+            width: 120px;
+            text-align: right;
+            transform: translateX(-140px);
+        }
+
+        .string-row {
+            display: flex;
+            position: relative;
+            margin-bottom: 30px;
+            margin-left: 140px; 
+            height: 50px;
+        }
+
+        .pattern-row {
+            display: flex;
+            position: relative;
+            margin-bottom: 60px; /* Space for pointers */
+            margin-left: 140px; 
+            transition: transform 0.4s ease-in-out;
+            height: 50px;
+        }
+
+        .pi-row {
+            display: flex;
+            position: relative;
+            margin-left: 140px; 
+            height: 50px;
+        }
+
+        .char-box, .pi-box {
+            box-sizing: border-box;
+            width: 50px;
+            height: 50px;
+            background-color: #f8fafc;
+            border: 2px solid #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: bold;
+            font-family: monospace;
+            margin-right: 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .char-box { color: #1e293b; }
+        .pi-box { color: #3b82f6; background-color: #eff6ff; border-color: #bfdbfe; }
+
+        .pi-box.calculated { background-color: #dbeafe; border-color: #3b82f6; font-weight: bold; }
+
+        /* Index Labels */
+        .char-box::before, .pi-box::before {
+            content: attr(data-index);
+            position: absolute;
+            top: -20px;
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: normal;
+        }
+
+        /* --- STATES --- */
+        .char-box.inactive { opacity: 0.3; background-color: #f1f5f9; }
+        
+        .char-box.comparing { background-color: #fef08a; border-color: #eab308; box-shadow: 0 0 10px rgba(234, 179, 8, 0.4); transform: scale(1.05); z-index: 2; }
+        .char-box.match { background-color: #4ade80; color: #064e3b; border-color: #16a34a; transform: scale(1.05); z-index: 2; }
+        .char-box.mismatch { background-color: #f87171; color: white; border-color: #dc2626; transform: scale(1.05); z-index: 2; }
+        
+        .char-box.prefix-match { background-color: #d1fae5; border-color: #34d399; color: #065f46; }
+
+        .pi-box.active-pi { background-color: #fef08a; border-color: #eab308; box-shadow: 0 0 10px rgba(234, 179, 8, 0.4); transform: scale(1.1); z-index: 2; }
+
+        /* --- POINTERS --- */
+        .pointer-q::after {
+            content: 'q ↓';
+            position: absolute;
+            top: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            font-weight: bold;
+            color: #c026d3;
+        }
+
+        .pointer-k::after {
+            content: '↑ k';
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            font-weight: bold;
+            color: #ea580c;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <div class="input-group">
+            <label for="patternInput">Pattern:</label>
+            <input type="text" id="patternInput" value="AABAACAABAA" maxlength="20">
+        </div>
+        
+        <button id="btnBuild" class="action">Build π Array</button>
+        <button id="btnReset">Reset</button>
+
+        <div class="divider" id="divPlayback" style="display: none;"></div>
+        
+        <div class="playback-controls" id="playbackControls" style="display: none;">
+            <button class="playback-btn" id="btnPrev">&#9664; Back</button>
+            <button class="play-btn" id="btnPlayPause">Pause</button>
+            <button class="playback-btn" id="btnNext">Next &#9654;</button>
+            
+            <div class="slider-container">
+                <label for="speedSlider">Speed:</label>
+                <input type="range" id="speedSlider" min="1" max="10" value="7">
+            </div>
+        </div>
+    </div>
+
+    <div class="info-board">
+        <div class="info-stats">
+            <div class="stat-item">Suffix Index (q): <span id="statQ">-</span></div>
+            <div class="stat-item">Prefix Length (k): <span id="statK">-</span></div>
+            <div class="stat-item">Shift: <span id="statShift">-</span></div>
+            <div class="stat-item">π[k-1]: <span id="statPiK">-</span></div>
+        </div>
+        <div class="info-desc" id="infoDesc">
+            Enter a pattern and click "Build π Array" to start.
+        </div>
+    </div>
+
+    <div class="workspace" id="workspace">
+        <div class="canvas" id="canvas">
+            <!-- Populated via JS -->
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const patternInput = document.getElementById('patternInput');
+        const btnBuild = document.getElementById('btnBuild');
+        const btnReset = document.getElementById('btnReset');
+        
+        const playbackControls = document.getElementById('playbackControls');
+        const divPlayback = document.getElementById('divPlayback');
+        const btnPrev = document.getElementById('btnPrev');
+        const btnNext = document.getElementById('btnNext');
+        const btnPlayPause = document.getElementById('btnPlayPause');
+        const speedSlider = document.getElementById('speedSlider');
+        
+        const statQ = document.getElementById('statQ');
+        const statK = document.getElementById('statK');
+        const statShift = document.getElementById('statShift');
+        const statPiK = document.getElementById('statPiK');
+        const infoDesc = document.getElementById('infoDesc');
+        const workspace = document.getElementById('workspace');
+        const canvas = document.getElementById('canvas');
+
+        // --- State Management ---
+        let animationQueue = [];
+        let isPlaying = false;
+        let currentStepIndex = -1;
+        let playTimeout = null;
+        let P = "";
+
+        const BOX_WIDTH = 58; // 50px width + 8px margin
+
+        // --- Core KMP Logic & Queue Generation ---
+        function generateKmpPiQueue(pattern) {
+            let m = pattern.length;
+            let pi = new Array(m).fill('?');
+            let queue = [];
+            
+            pi[0] = 0;
+            queue.push({ 
+                type: 'INIT', pi: [...pi], q: 0, k: 0, shift: 1, 
+                desc: `<span class="desc-action">Initialize π[0] = 0.</span> A pattern of length 1 has no proper prefix.`,
+                activeTop: [], activeBottom: []
+            });
+            
+            let k = 0;
+            for (let q = 1; q < m; q++) {
+                let current_shift = q - k;
+                
+                queue.push({ 
+                    type: 'START_Q', pi: [...pi], q, k, shift: current_shift, 
+                    desc: `Moving to index <span class="desc-highlight">q = ${q}</span>. Checking prefix length k = ${k}.`,
+                    activeTop: [q], activeBottom: [k]
+                });
+                
+                while (k > 0 && pattern[k] !== pattern[q]) {
+                    queue.push({ 
+                        type: 'COMPARE', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `Comparing P[<span class="desc-highlight">${q}</span>] ('${pattern[q]}') with prefix P[<span class="desc-highlight">${k}</span>] ('${pattern[k]}')`,
+                        activeTop: [q], activeBottom: [k], comparing: true
+                    });
+                    
+                    queue.push({ 
+                        type: 'MISMATCH', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="desc-mismatch">Mismatch!</span> '${pattern[q]}' != '${pattern[k]}'`,
+                        activeTop: [q], activeBottom: [k], mismatch: true
+                    });
+                    
+                    let old_k = k;
+                    k = pi[k - 1];
+                    current_shift = q - k; // update shift immediately for the fallback step
+                    
+                    queue.push({ 
+                        type: 'FALLBACK', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="desc-action">Fallback:</span> k = π[${old_k}-1] = <span class="desc-highlight">${k}</span>. Shifting prefix to the right...`,
+                        activeTop: [q], activeBottom: [k]
+                    });
+                }
+                
+                queue.push({ 
+                    type: 'COMPARE', pi: [...pi], q, k, shift: current_shift, 
+                    desc: `Comparing P[<span class="desc-highlight">${q}</span>] ('${pattern[q]}') with prefix P[<span class="desc-highlight">${k}</span>] ('${pattern[k]}')`,
+                    activeTop: [q], activeBottom: [k], comparing: true
+                });
+                
+                if (pattern[k] === pattern[q]) {
+                    queue.push({ 
+                        type: 'MATCH', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="desc-match">Match!</span> '${pattern[q]}' == '${pattern[k]}'`,
+                        activeTop: [q], activeBottom: [k], match: true
+                    });
+                    k++;
+                    pi[q] = k;
+                    queue.push({ 
+                        type: 'SET_PI', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `Increment k to ${k}. <span class="desc-action">Set π[${q}] = ${k}.</span>`,
+                        activeTop: [q], activeBottom: [k-1], targetPi: q // highlight the newly set Pi
+                    });
+                } else {
+                    queue.push({ 
+                        type: 'MISMATCH', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="desc-mismatch">Mismatch!</span> No prefix matches.`,
+                        activeTop: [q], activeBottom: [k], mismatch: true
+                    });
+                    pi[q] = k; // which is 0
+                    queue.push({ 
+                        type: 'SET_PI', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="desc-action">Set π[${q}] = 0.</span>`,
+                        activeTop: [q], activeBottom: [k], targetPi: q
+                    });
+                }
+            }
+            
+            queue.push({ 
+                type: 'DONE', pi: [...pi], q: m-1, k, shift: m, 
+                desc: `<span class="desc-match">π array calculation complete!</span>`,
+                activeTop: [], activeBottom: []
+            });
+            
+            return queue;
+        }
+
+        // --- Initialization & Setup ---
+        function setupCanvas() {
+            P = patternInput.value.toUpperCase().replace(/\s/g, '');
+            if(!P) P = "AABAACAABAA";
+            patternInput.value = P;
+
+            canvas.innerHTML = `
+                <div class="string-row" id="rowTop">
+                    <div class="row-label">Suffix String<br>(ends at q)</div>
+                </div>
+                <div class="pattern-row" id="rowBottom">
+                    <div class="row-label" style="color: #ea580c;">Prefix String<br>(tests k)</div>
+                </div>
+                <div class="pi-row" id="rowPi">
+                    <div class="row-label" style="color: #3b82f6;">π Array<br>(Length)</div>
+                </div>
+            `;
+
+            const rowTop = document.getElementById('rowTop');
+            const rowBottom = document.getElementById('rowBottom');
+            const rowPi = document.getElementById('rowPi');
+
+            for (let i = 0; i < P.length; i++) {
+                // Top String
+                let tBox = document.createElement('div');
+                tBox.className = 'char-box inactive';
+                tBox.id = `t-${i}`;
+                tBox.innerText = P[i];
+                tBox.setAttribute('data-index', i);
+                rowTop.appendChild(tBox);
+
+                // Bottom String
+                let bBox = document.createElement('div');
+                bBox.className = 'char-box inactive';
+                bBox.id = `b-${i}`;
+                bBox.innerText = P[i];
+                bBox.setAttribute('data-index', i);
+                rowBottom.appendChild(bBox);
+
+                // Pi Array
+                let pBox = document.createElement('div');
+                pBox.className = 'pi-box';
+                pBox.id = `pi-${i}`;
+                pBox.innerText = '?';
+                pBox.setAttribute('data-index', i);
+                rowPi.appendChild(pBox);
+            }
+            
+            rowBottom.style.transform = `translateX(0px)`;
+            workspace.scrollLeft = 0;
+        }
+
+        // --- Visual Rendering ---
+        function computeAndRenderState(index) {
+            if (index < 0 || index >= animationQueue.length) return;
+            const step = animationQueue[index];
+
+            // 1. Reset all visual classes
+            document.querySelectorAll('.char-box, .pi-box').forEach(el => {
+                el.classList.remove('comparing', 'match', 'mismatch', 'prefix-match', 'active-pi', 'pointer-q', 'pointer-k', 'inactive', 'calculated');
+                if (el.classList.contains('char-box')) el.classList.add('inactive'); // default to inactive
+            });
+
+            // 2. Apply base Data (Pi array values)
+            for (let i = 0; i < P.length; i++) {
+                const piBox = document.getElementById(`pi-${i}`);
+                piBox.innerText = step.pi[i];
+                if (step.pi[i] !== '?') piBox.classList.add('calculated');
+                
+                // Activate boxes up to q in top row
+                if (i <= step.q) document.getElementById(`t-${i}`).classList.remove('inactive');
+            }
+
+            // 3. Shift Bottom Row
+            const rowBottom = document.getElementById('rowBottom');
+            rowBottom.style.transform = `translateX(${step.shift * BOX_WIDTH}px)`;
+
+            // Activate bottom boxes that are within the current testing boundary
+            for(let i=0; i < P.length; i++) {
+                if (i <= step.k || (step.type === 'SET_PI' && i <= step.k)) {
+                   document.getElementById(`b-${i}`).classList.remove('inactive'); 
+                }
+            }
+
+            // 4. Highlight matching prefix portion
+            if (step.k > 0 && step.type !== 'INIT' && step.type !== 'DONE') {
+                // If the previous indices matched, color them slightly green to show the aligned prefix
+                let validPrefixK = step.k;
+                if (step.type === 'SET_PI' && step.desc.includes('Increment')) validPrefixK = step.k - 1; // Don't highlight the freshly added one just yet as part of history
+                
+                for(let i = 0; i < validPrefixK; i++) {
+                    const topIdx = step.q - step.k + i;
+                    const botIdx = i;
+                    if(document.getElementById(`t-${topIdx}`)) document.getElementById(`t-${topIdx}`).classList.add('prefix-match');
+                    if(document.getElementById(`b-${botIdx}`)) document.getElementById(`b-${botIdx}`).classList.add('prefix-match');
+                }
+            }
+
+            // 5. Apply Specific Pointers and Highlights
+            if (step.type !== 'INIT' && step.type !== 'DONE') {
+                const tTarget = document.getElementById(`t-${step.q}`);
+                let bTarget = document.getElementById(`b-${step.type === 'SET_PI' && step.desc.includes('Increment') ? step.k - 1 : step.k}`);
+                if(!bTarget && step.type === 'SET_PI') bTarget = document.getElementById(`b-${step.k}`); // fallback for 0
+
+                if (tTarget) tTarget.classList.add('pointer-q');
+                if (bTarget) bTarget.classList.add('pointer-k');
+
+                if (step.comparing) {
+                    tTarget.classList.add('comparing');
+                    bTarget.classList.add('comparing');
+                } else if (step.match) {
+                    tTarget.classList.add('match');
+                    bTarget.classList.add('match');
+                } else if (step.mismatch) {
+                    tTarget.classList.add('mismatch');
+                    bTarget.classList.add('mismatch');
+                }
+            }
+
+            if (step.targetPi !== undefined) {
+                const piTarget = document.getElementById(`pi-${step.targetPi}`);
+                if (piTarget) piTarget.classList.add('active-pi');
+            }
+
+            // 6. Update Info Board
+            statQ.innerText = step.q;
+            statK.innerText = step.type === 'INIT' ? '-' : step.k;
+            statShift.innerText = step.shift;
+            
+            // Calc pi[k-1] for display if k>0
+            let pik1 = '-';
+            if (step.type === 'FALLBACK' || (step.k > 0 && step.type !== 'INIT' && step.type !== 'SET_PI')) {
+                pik1 = step.pi[step.k - 1] !== '?' ? step.pi[step.k - 1] : '-';
+            }
+            statPiK.innerText = pik1;
+
+            infoDesc.innerHTML = step.desc;
+
+            // 7. Auto-Scroll
+            const targetX = (step.shift + step.k) * BOX_WIDTH;
+            const viewportHalf = workspace.clientWidth / 2;
+            if (targetX > viewportHalf) {
+                workspace.scrollLeft = targetX - viewportHalf + 100;
+            } else {
+                workspace.scrollLeft = 0;
+            }
+        }
+
+        // --- Playback Controls ---
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            btnPlayPause.innerText = isPlaying ? "Pause" : "Play";
+            if (isPlaying) {
+                if (currentStepIndex >= animationQueue.length - 1) currentStepIndex = -1;
+                playLoop();
+            } else {
+                clearTimeout(playTimeout);
+            }
+        }
+
+        function stepForward() {
+            isPlaying = false;
+            btnPlayPause.innerText = "Play";
+            clearTimeout(playTimeout);
+            if (currentStepIndex < animationQueue.length - 1) {
+                currentStepIndex++;
+                computeAndRenderState(currentStepIndex);
+            }
+        }
+
+        function stepBackward() {
+            isPlaying = false;
+            btnPlayPause.innerText = "Play";
+            clearTimeout(playTimeout);
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                computeAndRenderState(currentStepIndex);
+            }
+        }
+
+        function playLoop() {
+            if (!isPlaying) return;
+            
+            if (currentStepIndex < animationQueue.length - 1) {
+                currentStepIndex++;
+                const step = animationQueue[currentStepIndex];
+                computeAndRenderState(currentStepIndex);
+                
+                const speed = speedSlider.value;
+                let delay = 1400 - (speed * 120); 
+                
+                // Add slight pauses for important events
+                if(step.type === 'MATCH' || step.type === 'MISMATCH') delay *= 1.2;
+                if(step.type === 'SET_PI' || step.type === 'FALLBACK') delay *= 1.5;
+
+                playTimeout = setTimeout(playLoop, delay);
+            } else {
+                isPlaying = false;
+                btnPlayPause.innerText = "Play";
+            }
+        }
+
+        // --- Event Listeners ---
+        btnBuild.addEventListener('click', () => {
+            setupCanvas();
+            animationQueue = generateKmpPiQueue(P);
+            
+            patternInput.disabled = true;
+            btnBuild.disabled = true;
+            playbackControls.style.display = 'flex';
+            divPlayback.style.display = 'block';
+            
+            currentStepIndex = -1;
+            isPlaying = true;
+            btnPlayPause.innerText = "Pause";
+            playLoop();
+        });
+
+        btnReset.addEventListener('click', () => {
+            clearTimeout(playTimeout);
+            isPlaying = false;
+            currentStepIndex = -1;
+            
+            patternInput.disabled = false;
+            btnBuild.disabled = false;
+            playbackControls.style.display = 'none';
+            divPlayback.style.display = 'none';
+            
+            statQ.innerText = '-';
+            statK.innerText = '-';
+            statShift.innerText = '-';
+            statPiK.innerText = '-';
+            infoDesc.innerHTML = 'Enter a pattern and click "Build π Array" to start.';
+            
+            setupCanvas();
+        });
+
+        btnPrev.addEventListener('click', stepBackward);
+        btnNext.addEventListener('click', stepForward);
+        btnPlayPause.addEventListener('click', togglePlay);
+
+        // Init blank state
+        setupCanvas();
+
+    </script>
+</body>
+</html>
