@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>String Matching & KMP Visualizer</title>
+    <style>
+        /* ==========================================
+           GLOBAL & TAB STYLES
+           ========================================== */
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        h1 { margin-top: 0; margin-bottom: 25px; text-align: center; color: #1e293b; }
+
+        .tabs {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            background-color: #e2e8f0;
+            color: #475569;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-family: inherit;
+        }
+
+        .tab-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .tab-btn:hover:not(.active) {
+            background-color: #cbd5e1;
+        }
+
+        .tab-content {
+            display: none;
+            width: 100%;
+            max-width: 1050px;
+            flex-direction: column;
+            align-items: center;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==========================================
+           MATCHING SECTION (Naive, RK, KMP)
+           ========================================== */
+        .match-controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .match-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 10px 14px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            font-weight: 600;
+        }
+
+        .match-input-group input {
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            font-family: monospace;
+            text-transform: uppercase;
+        }
+
+        #matchTextInput { width: 350px; } 
+        #matchPatternInput { width: 120px; }
+        #matchModInput { width: 60px; text-align: center; text-transform: none; }
+
+        .match-btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            transition: background 0.2s;
+            font-family: inherit;
+        }
+
+        .match-btn:hover { background-color: #0056b3; }
+        .match-btn:disabled { background-color: #ccc; cursor: not-allowed; color: #777; }
+        #btnKMP { background-color: #8e44ad; }
+        #btnKMP:hover { background-color: #732d91; }
+
+        .match-playback-controls {
+            display: flex;
+            gap: 6px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .match-playback-btn { 
+            background-color: #6c757d; font-weight: bold; padding: 8px 15px; border: none; border-radius: 4px; color: white; cursor: pointer;
+        }
+        .match-playback-btn:hover { background-color: #5a6268; }
+        
+        .match-play-btn { 
+            background-color: #28a745; width: 100px; padding: 8px 15px; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: bold;
+        }
+        .match-play-btn:hover { background-color: #218838; }
+
+        .match-slider-container {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .match-status {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0;
+            height: 24px;
+            color: #1e293b;
+        }
+
+        .match-math-board {
+            width: 100%;
+            max-width: 900px;
+            background: #282c34;
+            color: #abb2bf;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            box-sizing: border-box;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .match-math-line { display: flex; align-items: center; flex-wrap: wrap; }
+        .match-math-label { width: 160px; font-weight: bold; color: #61afef; }
+        .match-math-value { color: #98c379; }
+        .match-math-result { font-weight: bold; font-size: 18px; margin-top: 8px; }
+
+        .match-viewport-wrapper {
+            width: 100%;
+            max-width: 900px;
+            height: 260px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            overflow-x: auto; 
+            overflow-y: hidden;
+            scroll-behavior: smooth; 
+            border: 2px solid #e2e8f0;
+        }
+
+        .match-canvas {
+            position: relative;
+            padding: 50px 40px;
+            width: max-content; 
+            min-width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .match-string-row { display: flex; position: relative; }
+        .match-pattern-row {
+            display: flex;
+            position: absolute;
+            top: 110px; 
+            transition: transform 0.25s ease-in-out;
+        }
+
+        .match-char-box {
+            box-sizing: border-box;
+            min-width: 45px; 
+            height: 45px;
+            background-color: #f8fafc;
+            border: 2px solid #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: bold;
+            font-family: monospace;
+            margin-right: 6px; 
+            border-radius: 5px;
+            transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+            color: #1e293b;
+        }
+
+        .match-char-box.comparing { background-color: #fef08a; border-color: #eab308; box-shadow: 0 0 10px #fef08a; z-index: 2; }
+        .match-char-box.match { background-color: #4ade80; color: #064e3b; border-color: #16a34a; z-index: 2; }
+        .match-char-box.mismatch { background-color: #f87171; color: white; border-color: #dc2626; z-index: 2; }
+        .match-char-box.found { background-color: #c084fc; color: white; border-color: #9333ea; z-index: 1; }
+
+        .match-viewport-wrapper::-webkit-scrollbar { height: 12px; }
+        .match-viewport-wrapper::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 0 0 10px 10px; }
+        .match-viewport-wrapper::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 6px; border: 3px solid #f1f5f9; }
+        .match-viewport-wrapper::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+
+        /* ==========================================
+           PI (π) ARRAY BUILDER SECTION
+           ========================================== */
+        .pi-toolbar {
+            background: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 10;
+            width: 100%;
+            max-width: 900px;
+            box-sizing: border-box;
+        }
+
+        .pi-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .pi-input-group input {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            width: 250px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: monospace;
+        }
+
+        .pi-btn {
+            padding: 9px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            transition: all 0.2s;
+            background-color: #2563eb;
+            color: white;
+            font-family: inherit;
+        }
+
+        .pi-btn:hover { background-color: #1d4ed8; }
+        .pi-btn:disabled { background-color: #cbd5e1; cursor: not-allowed; color: #94a3b8; }
+        .pi-btn.action { background-color: #8b5cf6; } 
+        .pi-btn.action:hover { background-color: #7c3aed; }
+        
+        .pi-divider { width: 2px; height: 30px; background: #e2e8f0; margin: 0 5px; }
+
+        .pi-playback-controls { display: flex; gap: 6px; align-items: center; }
+        .pi-playback-btn { background-color: #64748b; padding: 8px 12px; border:none; border-radius:5px; color:white; cursor:pointer; font-weight:600;}
+        .pi-playback-btn:hover { background-color: #475569; }
+        .pi-play-btn { background-color: #10b981; width: 80px; padding: 8px 12px; border:none; border-radius:5px; color:white; cursor:pointer; font-weight:600;}
+        .pi-play-btn:hover { background-color: #059669; }
+
+        .pi-slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .pi-info-board {
+            width: 100%;
+            max-width: 900px;
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 15px 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-sizing: border-box;
+        }
+
+        .pi-info-stats {
+            display: flex;
+            justify-content: space-between;
+            font-family: monospace;
+            font-size: 16px;
+            background: #0f172a;
+            padding: 12px 18px;
+            border-radius: 6px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .pi-stat-item span { color: #38bdf8; font-weight: bold; }
+        
+        .pi-info-desc {
+            font-size: 18px;
+            font-weight: bold;
+            color: #e2e8f0;
+            text-align: center;
+            min-height: 28px;
+        }
+
+        .pi-desc-highlight { color: #fcd34d; }
+        .pi-desc-match { color: #4ade80; }
+        .pi-desc-mismatch { color: #f87171; }
+        .pi-desc-action { color: #c084fc; }
+
+        .pi-workspace {
+            width: 100%;
+            max-width: 900px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border: 2px solid #cbd5e1;
+            padding: 20px 0;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            position: relative;
+            min-height: 340px;
+        }
+
+        .pi-canvas {
+            position: relative;
+            padding: 40px 60px 80px 60px;
+            width: max-content;
+            min-width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .pi-row-label {
+            position: absolute;
+            left: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #64748b;
+            width: 120px;
+            text-align: right;
+            transform: translateX(-140px);
+        }
+
+        .pi-string-row { display: flex; position: relative; margin-bottom: 30px; margin-left: 140px; height: 50px; }
+        .pi-pattern-row { display: flex; position: relative; margin-bottom: 60px; margin-left: 140px; transition: transform 0.4s ease-in-out; height: 50px; }
+        .pi-array-row { display: flex; position: relative; margin-left: 140px; height: 50px; }
+
+        .pi-char-box, .pi-box {
+            box-sizing: border-box;
+            width: 50px;
+            height: 50px;
+            background-color: #f8fafc;
+            border: 2px solid #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: bold;
+            font-family: monospace;
+            margin-right: 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .pi-char-box { color: #1e293b; }
+        .pi-box { color: #3b82f6; background-color: #eff6ff; border-color: #bfdbfe; }
+        .pi-box.calculated { background-color: #dbeafe; border-color: #3b82f6; font-weight: bold; }
+
+        .pi-char-box::before, .pi-box::before {
+            content: attr(data-index);
+            position: absolute;
+            top: -20px;
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: normal;
+        }
+
+        .pi-char-box.inactive { opacity: 0.3; background-color: #f1f5f9; border-color: #cbd5e1; }
+        .pi-char-box.comparing { background-color: #fef08a; border-color: #eab308; box-shadow: 0 0 10px rgba(234, 179, 8, 0.4); transform: scale(1.05); z-index: 2; }
+        .pi-char-box.match { background-color: #4ade80; color: #064e3b; border-color: #16a34a; transform: scale(1.05); z-index: 2; }
+        .pi-char-box.mismatch { background-color: #f87171; color: white; border-color: #dc2626; transform: scale(1.05); z-index: 2; }
+        .pi-char-box.prefix-match { background-color: #d1fae5; border-color: #34d399; color: #065f46; }
+        .pi-box.active-pi { background-color: #fef08a; border-color: #eab308; box-shadow: 0 0 10px rgba(234, 179, 8, 0.4); transform: scale(1.1); z-index: 2; }
+
+        .pi-pointer-q::after {
+            content: 'q ↓'; position: absolute; top: -35px; left: 50%; transform: translateX(-50%);
+            font-size: 16px; font-weight: bold; color: #c026d3;
+        }
+        .pi-pointer-k::after {
+            content: '↑ k'; position: absolute; bottom: -35px; left: 50%; transform: translateX(-50%);
+            font-size: 16px; font-weight: bold; color: #ea580c;
+        }
+
+        .pi-workspace::-webkit-scrollbar { height: 12px; }
+        .pi-workspace::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 0 0 10px 10px; }
+        .pi-workspace::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 6px; border: 3px solid #f1f5f9; }
+        .pi-workspace::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    </style>
+</head>
+<body>
+
+    <h1>String Matching & KMP Visualizer</h1>
+    
+    <div class="tabs">
+        <button id="tab-btn-pi" class="tab-btn active" onclick="switchTab('pi')">1. KMP Prefix (π) Array Builder</button>
+        <button id="tab-btn-matching" class="tab-btn" onclick="switchTab('matching')">2. String Matching Phase</button>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MATCHING SECTION (TAB 2) -->
+    <!-- ========================================================= -->
+    <div id="matching-section" class="tab-content">
+        
+        <div class="match-controls">
+            <div class="match-input-group">
+                <label>Text (T):</label>
+                <input type="text" id="matchTextInput" value="AABAACAADAABAABA" maxlength="150">
+            </div>
+            <div class="match-input-group">
+                <label>Pattern (P):</label>
+                <input type="text" id="matchPatternInput" value="AABA" maxlength="15">
+            </div>
+            <div class="match-input-group" title="Used only for Rabin-Karp Hash Modulo">
+                <label>Modulo (q):</label>
+                <input type="number" id="matchModInput" value="10" min="2" max="1000">
+            </div>
+        </div>
+
+        <div class="match-controls">
+            <button class="match-btn" id="btnNaive" onclick="runSimulation('naive')">Run Naive</button>
+            <button class="match-btn" id="btnRK" onclick="runSimulation('rk')">Run Rabin-Karp</button>
+            <button class="match-btn" id="btnKMP" onclick="runSimulation('kmp')">Run KMP</button>
+            <button class="match-btn" style="background-color:#64748b;" onclick="matchResetVisualization()">Reset</button>
+        </div>
+
+        <div class="match-controls" style="min-height: 40px;">
+            <div class="match-playback-controls" id="matchPlaybackControls" style="display: none;">
+                <button class="match-playback-btn" onclick="matchStepBackward()">&#9664; Step Back</button>
+                <button class="match-play-btn" id="matchBtnPlayPause" onclick="matchTogglePlay()">Pause</button>
+                <button class="match-playback-btn" onclick="matchStepForward()">Step Forward &#9654;</button>
+            </div>
+            
+            <div class="match-slider-container" id="matchSpeedContainer" style="display: none;">
+                <label for="matchSpeedSlider">Speed:</label>
+                <input type="range" id="matchSpeedSlider" min="1" max="10" value="7">
+            </div>
+        </div>
+        
+        <div class="match-status" id="matchStatusText">Comparisons: 0 | Matches found: 0</div>
+        
+        <div class="match-math-board" id="matchMathBoard">
+            <div style="color: #5c6370; text-align: center; font-style: italic;">Awaiting calculation...</div>
+        </div>
+
+        <div class="match-viewport-wrapper" id="matchScrollViewport">
+            <div class="match-canvas">
+                <div id="matchTextString" class="match-string-row"></div>
+                <div id="matchPatternString" class="match-pattern-row"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- PI ARRAY BUILDER SECTION (TAB 1) -->
+    <!-- ========================================================= -->
+    <div id="pi-section" class="tab-content active">
+        
+        <div class="pi-toolbar">
+            <div class="pi-input-group">
+                <label for="piPatternInput">Pattern to Pre-process:</label>
+                <input type="text" id="piPatternInput" value="AABA" maxlength="20">
+            </div>
+            
+            <button id="piBtnBuild" class="pi-btn action">Build π Array</button>
+            <button id="piBtnReset" class="pi-btn" style="background-color:#64748b;">Reset</button>
+
+            <div class="pi-divider" id="piDivPlayback" style="display: none;"></div>
+            
+            <div class="pi-playback-controls" id="piPlaybackControls" style="display: none;">
+                <button class="pi-playback-btn" id="piBtnPrev">&#9664; Back</button>
+                <button class="pi-play-btn" id="piBtnPlayPause">Pause</button>
+                <button class="pi-playback-btn" id="piBtnNext">Next &#9654;</button>
+                
+                <div class="pi-slider-container">
+                    <label for="piSpeedSlider">Speed:</label>
+                    <input type="range" id="piSpeedSlider" min="1" max="10" value="7">
+                </div>
+            </div>
+        </div>
+
+        <div class="pi-info-board">
+            <div class="pi-info-stats">
+                <div class="pi-stat-item">Suffix Index (q): <span id="piStatQ">-</span></div>
+                <div class="pi-stat-item">Prefix Length (k): <span id="piStatK">-</span></div>
+                <div class="pi-stat-item">Shift: <span id="piStatShift">-</span></div>
+                <div class="pi-stat-item">π[k-1]: <span id="piStatPiK">-</span></div>
+            </div>
+            <div class="pi-info-desc" id="piInfoDesc">
+                Enter a pattern and click "Build π Array" to start.
+            </div>
+        </div>
+
+        <div class="pi-workspace" id="piWorkspace">
+            <div class="pi-canvas" id="piCanvas">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // ==============================================================================
+        // TAB MANAGEMENT
+        // ==============================================================================
+        function switchTab(tabId) {
+            // Pause any active animations
+            if (matchIsPlaying) matchTogglePlay();
+            if (piIsPlaying) piTogglePlay();
+
+            // Toggle Classes
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            if (tabId === 'pi') {
+                document.getElementById('tab-btn-pi').classList.add('active');
+                document.getElementById('pi-section').classList.add('active');
+            } else {
+                document.getElementById('tab-btn-matching').classList.add('active');
+                document.getElementById('matching-section').classList.add('active');
+                
+                // One-way sync: Update MATCH pattern if changed in PI Tab
+                const currentPiPattern = document.getElementById('piPatternInput').value.trim();
+                const matchInput = document.getElementById('matchPatternInput');
+                if (currentPiPattern && currentPiPattern !== matchInput.value && !matchInput.disabled) {
+                     matchInput.value = currentPiPattern;
+                     matchInitStrings(); // Refresh the matching workspace with the new pattern
+                }
+            }
+        }
+
+
+        // ==============================================================================
+        // STRING MATCHING SECTION (NAIVE, RABIN-KARP, KMP)
+        // ==============================================================================
+        let matchAnimationQueue = [];
+        let matchIsPlaying = false;
+        let matchStepIndex = -1;
+        let matchPlayTimeout = null;
+        const MATCH_BOX_WIDTH = 51; // 45px box + 6px margin
+
+        function matchInitStrings() {
+            const T = document.getElementById('matchTextInput').value.toUpperCase().replace(/\s/g, '');
+            const P = document.getElementById('matchPatternInput').value.toUpperCase().replace(/\s/g, '');
+            
+            // Force values back without spaces
+            document.getElementById('matchTextInput').value = T;
+            document.getElementById('matchPatternInput').value = P;
+
+            const textDiv = document.getElementById('matchTextString');
+            const patternDiv = document.getElementById('matchPatternString');
+            
+            textDiv.innerHTML = '';
+            patternDiv.innerHTML = '';
+            
+            for(let i = 0; i < T.length; i++) {
+                const box = document.createElement('div');
+                box.className = 'match-char-box';
+                box.id = `m-t-${i}`;
+                box.innerText = T[i]; 
+                textDiv.appendChild(box);
+            }
+            
+            for(let i = 0; i < P.length; i++) {
+                const box = document.createElement('div');
+                box.className = 'match-char-box';
+                box.id = `m-p-${i}`;
+                box.innerText = P[i];
+                patternDiv.appendChild(box);
+            }
+
+            document.getElementById('matchPatternString').style.transform = `translateX(0px)`;
+            document.getElementById('matchScrollViewport').scrollLeft = 0;
+            
+            return { T, P };
+        }
+
+        function matchResetVisualization() {
+            clearTimeout(matchPlayTimeout);
+            matchInitStrings();
+            
+            document.getElementById('matchStatusText').innerText = 'Comparisons: 0 | Matches found: 0';
+            document.getElementById('matchMathBoard').innerHTML = '<div style="color: #5c6370; text-align: center; font-style: italic;">Awaiting calculation...</div>';
+            document.getElementById('matchPlaybackControls').style.display = 'none';
+            document.getElementById('matchSpeedContainer').style.display = 'none';
+            
+            matchAnimationQueue = [];
+            matchStepIndex = -1;
+            matchIsPlaying = false;
+            matchEnableButtons(true);
+        }
+
+        function matchEnableButtons(enable) {
+            document.getElementById('btnNaive').disabled = !enable;
+            document.getElementById('btnRK').disabled = !enable;
+            document.getElementById('btnKMP').disabled = !enable;
+            document.getElementById('matchTextInput').disabled = !enable;
+            document.getElementById('matchPatternInput').disabled = !enable;
+            document.getElementById('matchModInput').disabled = !enable;
+        }
+
+        function matchEnqueueAction(action) {
+            matchAnimationQueue.push(action);
+        }
+
+        // --- ALGORITHMS ---
+
+        function naiveMatcher(T, P) {
+            let n = T.length;
+            let m = P.length;
+
+            for (let s = 0; s <= n - m; s++) {
+                matchEnqueueAction({ type: 'shift', s, desc: `Shift Window to index ${s}` });
+                let match = true;
+                
+                for (let i = 0; i < m; i++) {
+                    matchEnqueueAction({ type: 'compare', s, i });
+                    if (P[i] !== T[s + i]) {
+                        matchEnqueueAction({ type: 'mismatch', s, i });
+                        match = false;
+                        break; 
+                    } else {
+                        matchEnqueueAction({ type: 'match_char', s, i });
+                    }
+                }
+                if (match) matchEnqueueAction({ type: 'match_found', s, m });
+            }
+        }
+
+        function rabinKarpMatcher(T, P) {
+            let n = T.length;
+            let m = P.length;
+            if (m === 0 || m > n) return;
+
+            let d = 256; 
+            let q = parseInt(document.getElementById('matchModInput').value) || 10;
+            let h = 1;
+            
+            for (let i = 0; i < m - 1; i++) h = (h * d) % q;
+
+            let pHash = 0;
+            let tHash = 0;
+
+            for (let i = 0; i < m; i++) {
+                pHash = (d * pHash + P.charCodeAt(i)) % q;
+                tHash = (d * tHash + T.charCodeAt(i)) % q;
+            }
+
+            let currentMathStr = `Initial string loop % ${q}`;
+            let prevHash = tHash;
+
+            for (let s = 0; s <= n - m; s++) {
+                matchEnqueueAction({ 
+                    type: 'hash_shift', 
+                    s, m, pHash, tHash, 
+                    tMath: currentMathStr 
+                });
+
+                if (pHash === tHash) {
+                    matchEnqueueAction({ type: 'hash_match', s, pHash, tHash, m });
+                    let match = true;
+                    
+                    for (let i = 0; i < m; i++) {
+                        matchEnqueueAction({ type: 'compare', s, i });
+                        if (P[i] !== T[s + i]) {
+                            matchEnqueueAction({ type: 'mismatch', s, i });
+                            match = false;
+                            break;
+                        } else {
+                            matchEnqueueAction({ type: 'match_char', s, i });
+                        }
+                    }
+                    if (match) matchEnqueueAction({ type: 'match_found', s, m });
+                } else {
+                    matchEnqueueAction({ type: 'hash_mismatch', s, pHash, tHash, m });
+                }
+
+                if (s < n - m) {
+                    prevHash = tHash;
+                    let oldChar = T.charCodeAt(s);
+                    let newChar = T.charCodeAt(s + m);
+                    
+                    tHash = (d * (tHash - oldChar * h) + newChar) % q;
+                    if (tHash < 0) tHash = (tHash + q);
+                    currentMathStr = `(256 * (${prevHash} - ${oldChar} * ${h}) + ${newChar}) % ${q}`;
+                }
+            }
+        }
+
+        function kmpMatcher(T, P) {
+            let n = T.length;
+            let m = P.length;
+            if (m === 0 || m > n) return;
+
+            // 1. Compute Prefix Function (pi array)
+            let pi = new Array(m).fill(0);
+            let k = 0;
+            for (let q_idx = 1; q_idx < m; q_idx++) {
+                while (k > 0 && P[k] !== P[q_idx]) k = pi[k - 1];
+                if (P[k] === P[q_idx]) k++;
+                pi[q_idx] = k;
+            }
+
+            let piString = "[" + pi.join(", ") + "]";
+            let q = 0; 
+            let currentShift = 0;
+
+            matchEnqueueAction({ type: 'kmp_init', pi: piString, desc: `Computed prefix array (π): ${piString}<br><span style="font-size:14px; color:#abb2bf;">(See 'KMP π Array Builder' tab to see how this is made)</span>`, kmp_i: '-', kmp_q: 0 });
+            matchEnqueueAction({ type: 'shift', s: 0, desc: `Initial position`, pi: piString, kmp_i: 0, kmp_q: 0 });
+
+            // 2. KMP Matcher Loop
+            for (let i = 0; i < n; i++) {
+                currentShift = i - q;
+                
+                matchEnqueueAction({ type: 'compare', s: currentShift, i: q, kmp_i: i, kmp_q: q, pi: piString });
+                
+                while (q > 0 && P[q] !== T[i]) {
+                    matchEnqueueAction({ type: 'mismatch', s: currentShift, i: q, kmp_i: i, kmp_q: q, pi: piString });
+                    q = pi[q - 1]; 
+                    currentShift = i - q;
+                    
+                    matchEnqueueAction({ 
+                        type: 'kmp_fallback', 
+                        s: currentShift, 
+                        desc: `Mismatch! Fallback to matched chars = π[q-1] = ${q}. Shifting pattern...`,
+                        pi: piString, kmp_i: i, kmp_q: q
+                    });
+                    
+                    matchEnqueueAction({ type: 'compare', s: currentShift, i: q, kmp_i: i, kmp_q: q, pi: piString });
+                }
+                
+                if (P[q] === T[i]) {
+                    matchEnqueueAction({ type: 'match_char', s: currentShift, i: q, kmp_i: i, kmp_q: q, pi: piString });
+                    q++; 
+                } else {
+                    matchEnqueueAction({ type: 'mismatch', s: currentShift, i: q, kmp_i: i, kmp_q: q, pi: piString });
+                }
+
+                if (q === m) {
+                    matchEnqueueAction({ type: 'match_found', s: currentShift, m: m, pi: piString, kmp_i: i, kmp_q: q });
+                    q = pi[q - 1]; 
+                    let nextShift = (i + 1) - q;
+                    if (i < n - 1) { 
+                        matchEnqueueAction({ 
+                            type: 'kmp_fallback', 
+                            s: nextShift, 
+                            desc: `Pattern matched! Fallback to π[m-1] = ${q} for next potential match.`,
+                            pi: piString, kmp_i: i, kmp_q: q
+                        });
+                    }
+                }
+            }
+        }
+
+        // --- RENDER MATCHING STATE ---
+
+        function matchComputeState(index) {
+            let state = { 
+                shift: 0, comparisons: 0, matchesFound: 0, 
+                mathBoardHTML: '<div style="color: #5c6370; text-align: center; font-style: italic;">Awaiting calculation...</div>',
+                classes: {}, foundIndices: new Set() 
+            };
+            if (index < 0) return state;
+
+            let activePMath = "0", activeTMath = "0", activePHash = 0, activeTHash = 0;
+            let activePi = "", activeKmpI = "-", activeKmpQ = "-";
+            let resultHTML = "";
+
+            for (let j = 0; j <= index; j++) {
+                const step = matchAnimationQueue[j];
+                
+                if (step.type === 'shift') {
+                    state.shift = step.s;
+                    if (!step.pi) state.mathBoardHTML = `<div style="text-align:center; color:#abb2bf;">${step.desc}</div>`;
+                }
+                else if (step.type === 'hash_shift') {
+                    state.shift = step.s;
+                    activePHash = step.pHash;
+                    activeTHash = step.tHash;
+                    activePMath = `Fixed Pattern Hash`; 
+                    activeTMath = step.tMath;
+                    resultHTML = `<span style="color:#e5c07b;">Calculating hashes...</span>`;
+                } else if (step.type === 'hash_match') {
+                    state.comparisons++;
+                    resultHTML = `<span style="color:#98c379;">${activePHash} == ${activeTHash} ➔ HASH COLLISION (Verifying chars)</span>`;
+                } else if (step.type === 'hash_mismatch') {
+                    state.comparisons++;
+                    resultHTML = `<span style="color:#e06c75;">${activePHash} != ${activeTHash} ➔ MISMATCH (Skipping window)</span>`;
+                }
+                
+                if (step.pi !== undefined) {
+                    activePi = step.pi;
+                    if (step.kmp_i !== undefined) activeKmpI = step.kmp_i;
+                    if (step.kmp_q !== undefined) activeKmpQ = step.kmp_q;
+
+                    if (step.type === 'kmp_init') {
+                        resultHTML = `<span style="color:#61afef;">${step.desc}</span>`;
+                    } else if (step.type === 'shift' || step.type === 'kmp_fallback') {
+                        resultHTML = `<span style="color:#e5c07b;">${step.desc}</span>`;
+                        if(step.type === 'kmp_fallback') state.shift = step.s; 
+                    } else if (step.type === 'compare') {
+                        resultHTML = `<span style="color:#e5c07b;">Comparing T[${activeKmpI}] and P[${activeKmpQ}]...</span>`;
+                    } else if (step.type === 'match_char') {
+                        resultHTML = `<span style="color:#98c379;">Match! Increment matched chars (q)</span>`;
+                    } else if (step.type === 'mismatch') {
+                        resultHTML = `<span style="color:#e06c75;">Mismatch!</span>`;
+                    } else if (step.type === 'match_found') {
+                        resultHTML = `<span style="color:#c678dd; font-weight:bold;">Pattern completely matched!</span>`;
+                    }
+                }
+
+                if (step.type === 'compare') {
+                    state.comparisons++;
+                } else if (step.type === 'match_found') {
+                    for(let k = 0; k < step.m; k++) state.foundIndices.add(step.s + k);
+                    state.matchesFound++;
+                    if (!step.pi && !step.pHash) { // Naive display
+                        state.mathBoardHTML = `<div style="text-align:center; color:#c678dd; font-weight:bold; font-size:20px;">Pattern found at Shift ${step.s}!</div>`;
+                    }
+                }
+
+                if (step.type.startsWith('hash_')) {
+                    state.mathBoardHTML = `
+                        <div class="match-math-line">
+                            <span class="match-math-label">Pattern Hash (P):</span>
+                            <span class="match-math-value">${activePMath} = <b style="color:#fff">${activePHash}</b></span>
+                        </div>
+                        <div class="match-math-line">
+                            <span class="match-math-label">Text Hash (T):</span>
+                            <span class="match-math-value">${activeTMath} = <b style="color:#fff">${activeTHash}</b></span>
+                        </div>
+                        <div class="match-math-result">Result: ${resultHTML}</div>
+                    `;
+                } else if (step.pi !== undefined) {
+                    state.mathBoardHTML = `
+                        <div class="match-math-line">
+                            <span class="match-math-label">Prefix Array (π):</span>
+                            <span class="match-math-value">${activePi}</span>
+                        </div>
+                        <div class="match-math-line">
+                            <span class="match-math-label">Text Index (i):</span>
+                            <span class="match-math-value" style="color:#fff; display:inline-block; width:40px;">${activeKmpI}</span>
+                            <span class="match-math-label" style="width:160px;">Matched Chars (q):</span>
+                            <span class="match-math-value" style="color:#fff;">${activeKmpQ}</span>
+                        </div>
+                        <div class="match-math-result">Status: ${resultHTML}</div>
+                    `;
+                }
+            }
+
+            const currentStep = matchAnimationQueue[index];
+            if (currentStep.type === 'compare') {
+                state.classes[`m-t-${currentStep.s + currentStep.i}`] = 'comparing';
+                state.classes[`m-p-${currentStep.i}`] = 'comparing';
+            } else if (currentStep.type === 'match_char') {
+                state.classes[`m-t-${currentStep.s + currentStep.i}`] = 'match';
+                state.classes[`m-p-${currentStep.i}`] = 'match';
+            } else if (currentStep.type === 'mismatch') {
+                state.classes[`m-t-${currentStep.s + currentStep.i}`] = 'mismatch';
+                state.classes[`m-p-${currentStep.i}`] = 'mismatch';
+            }
+
+            return state;
+        }
+
+        function matchRenderState(state) {
+            document.querySelectorAll('.match-char-box').forEach(el => el.className = 'match-char-box'); 
+
+            state.foundIndices.forEach(idx => {
+                const el = document.getElementById(`m-t-${idx}`);
+                if (el) el.classList.add('found');
+            });
+
+            for (const [id, cls] of Object.entries(state.classes)) {
+                const el = document.getElementById(id);
+                if (el) el.classList.add(cls);
+            }
+
+            document.getElementById('matchPatternString').style.transform = `translateX(${state.shift * MATCH_BOX_WIDTH}px)`;
+            
+            const viewport = document.getElementById('matchScrollViewport');
+            const patternX = state.shift * MATCH_BOX_WIDTH;
+            const targetScroll = patternX - (viewport.clientWidth / 2) + 120; 
+            
+            if (Math.abs(viewport.scrollLeft - targetScroll) > 100) {
+                viewport.scrollLeft = targetScroll;
+            }
+
+            document.getElementById('matchStatusText').innerText = `Comparisons: ${state.comparisons} | Matches found: ${state.matchesFound}`;
+            document.getElementById('matchMathBoard').innerHTML = state.mathBoardHTML;
+        }
+
+        // --- MATCHING PLAYBACK ---
+
+        function matchTogglePlay() {
+            matchIsPlaying = !matchIsPlaying;
+            document.getElementById('matchBtnPlayPause').innerText = matchIsPlaying ? "Pause" : "Play";
+            if (matchIsPlaying) {
+                if (matchStepIndex >= matchAnimationQueue.length - 1) matchStepIndex = -1;
+                matchPlayLoop();
+            } else {
+                clearTimeout(matchPlayTimeout);
+            }
+        }
+
+        function matchStepForward() {
+            matchIsPlaying = false;
+            document.getElementById('matchBtnPlayPause').innerText = "Play";
+            clearTimeout(matchPlayTimeout);
+            if (matchStepIndex < matchAnimationQueue.length - 1) {
+                matchStepIndex++;
+                matchRenderState(matchComputeState(matchStepIndex));
+            }
+        }
+
+        function matchStepBackward() {
+            matchIsPlaying = false;
+            document.getElementById('matchBtnPlayPause').innerText = "Play";
+            clearTimeout(matchPlayTimeout);
+            if (matchStepIndex > -1) {
+                matchStepIndex--;
+                matchRenderState(matchComputeState(matchStepIndex));
+            }
+        }
+
+        function matchPlayLoop() {
+            if (!matchIsPlaying) return;
+            if (matchStepIndex < matchAnimationQueue.length - 1) {
+                matchStepIndex++;
+                const step = matchAnimationQueue[matchStepIndex];
+                matchRenderState(matchComputeState(matchStepIndex));
+                
+                const speed = document.getElementById('matchSpeedSlider').value;
+                let delay = 1100 - (speed * 100); 
+                
+                if(step.type === 'match_found') delay *= 2;
+                if(step.type === 'hash_match' || step.type === 'hash_mismatch' || step.type === 'mismatch' || step.type === 'kmp_fallback') delay *= 1.5;
+
+                matchPlayTimeout = setTimeout(matchPlayLoop, delay);
+            } else {
+                matchIsPlaying = false;
+                document.getElementById('matchBtnPlayPause').innerText = "Play";
+                matchEnableButtons(true);
+            }
+        }
+
+        function runSimulation(type) {
+            matchResetVisualization();
+            const { T, P } = matchInitStrings();
+            if (T.length === 0 || P.length === 0 || P.length > T.length) { alert("Invalid length."); return; }
+
+            if (type === 'naive') naiveMatcher(T, P);
+            else if (type === 'rk') rabinKarpMatcher(T, P);
+            else if (type === 'kmp') kmpMatcher(T, P);
+            
+            matchEnableButtons(false);
+            document.getElementById('matchPlaybackControls').style.display = 'flex';
+            document.getElementById('matchSpeedContainer').style.display = 'flex';
+            
+            matchIsPlaying = true;
+            document.getElementById('matchBtnPlayPause').innerText = "Pause";
+            matchPlayLoop();
+        }
+
+        // Initialize empty matcher on load
+        matchInitStrings();
+
+
+
+        // ==============================================================================
+        // KMP PRE-PROCESSING (π ARRAY BUILDER) SECTION
+        // ==============================================================================
+        const piPatternInput = document.getElementById('piPatternInput');
+        const piBtnBuild = document.getElementById('piBtnBuild');
+        const piBtnReset = document.getElementById('piBtnReset');
+        
+        const piPlaybackControls = document.getElementById('piPlaybackControls');
+        const piDivPlayback = document.getElementById('piDivPlayback');
+        const piBtnPrev = document.getElementById('piBtnPrev');
+        const piBtnNext = document.getElementById('piBtnNext');
+        const piBtnPlayPause = document.getElementById('piBtnPlayPause');
+        const piSpeedSlider = document.getElementById('piSpeedSlider');
+        
+        const piStatQ = document.getElementById('piStatQ');
+        const piStatK = document.getElementById('piStatK');
+        const piStatShift = document.getElementById('piStatShift');
+        const piStatPiK = document.getElementById('piStatPiK');
+        const piInfoDesc = document.getElementById('piInfoDesc');
+        const piWorkspace = document.getElementById('piWorkspace');
+        const piCanvas = document.getElementById('piCanvas');
+
+        let piAnimationQueue = [];
+        let piIsPlaying = false;
+        let piCurrentStepIndex = -1;
+        let piPlayTimeout = null;
+        let piP = "";
+
+        const PI_BOX_WIDTH = 58; // 50px width + 8px margin
+
+        function generateKmpPiQueue(pattern) {
+            let m = pattern.length;
+            let pi = new Array(m).fill('?');
+            let queue = [];
+            
+            pi[0] = 0;
+            queue.push({ 
+                type: 'INIT', pi: [...pi], q: 0, k: 0, shift: 1, 
+                desc: `<span class="pi-desc-action">Initialize π[0] = 0.</span> A pattern of length 1 has no proper prefix.`,
+                activeTop: [], activeBottom: []
+            });
+            
+            let k = 0;
+            for (let q = 1; q < m; q++) {
+                let current_shift = q - k;
+                
+                queue.push({ 
+                    type: 'START_Q', pi: [...pi], q, k, shift: current_shift, 
+                    desc: `Moving to index <span class="pi-desc-highlight">q = ${q}</span>. Checking prefix length k = ${k}.`,
+                    activeTop: [q], activeBottom: [k]
+                });
+                
+                while (k > 0 && pattern[k] !== pattern[q]) {
+                    queue.push({ 
+                        type: 'COMPARE', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `Comparing P[<span class="pi-desc-highlight">${q}</span>] ('${pattern[q]}') with prefix P[<span class="pi-desc-highlight">${k}</span>] ('${pattern[k]}')`,
+                        activeTop: [q], activeBottom: [k], comparing: true
+                    });
+                    
+                    queue.push({ 
+                        type: 'MISMATCH', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="pi-desc-mismatch">Mismatch!</span> '${pattern[q]}' != '${pattern[k]}'`,
+                        activeTop: [q], activeBottom: [k], mismatch: true
+                    });
+                    
+                    let old_k = k;
+                    k = pi[k - 1];
+                    current_shift = q - k; 
+                    
+                    queue.push({ 
+                        type: 'FALLBACK', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="pi-desc-action">Fallback:</span> k = π[${old_k}-1] = <span class="pi-desc-highlight">${k}</span>. Shifting prefix to the right...`,
+                        activeTop: [q], activeBottom: [k]
+                    });
+                }
+                
+                queue.push({ 
+                    type: 'COMPARE', pi: [...pi], q, k, shift: current_shift, 
+                    desc: `Comparing P[<span class="pi-desc-highlight">${q}</span>] ('${pattern[q]}') with prefix P[<span class="pi-desc-highlight">${k}</span>] ('${pattern[k]}')`,
+                    activeTop: [q], activeBottom: [k], comparing: true
+                });
+                
+                if (pattern[k] === pattern[q]) {
+                    queue.push({ 
+                        type: 'MATCH', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="pi-desc-match">Match!</span> '${pattern[q]}' == '${pattern[k]}'`,
+                        activeTop: [q], activeBottom: [k], match: true
+                    });
+                    k++;
+                    pi[q] = k;
+                    queue.push({ 
+                        type: 'SET_PI', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `Increment k to ${k}. <span class="pi-desc-action">Set π[${q}] = ${k}.</span>`,
+                        activeTop: [q], activeBottom: [k-1], targetPi: q 
+                    });
+                } else {
+                    queue.push({ 
+                        type: 'MISMATCH', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="pi-desc-mismatch">Mismatch!</span> No prefix matches.`,
+                        activeTop: [q], activeBottom: [k], mismatch: true
+                    });
+                    pi[q] = k; // which is 0
+                    queue.push({ 
+                        type: 'SET_PI', pi: [...pi], q, k, shift: current_shift, 
+                        desc: `<span class="pi-desc-action">Set π[${q}] = 0.</span>`,
+                        activeTop: [q], activeBottom: [k], targetPi: q
+                    });
+                }
+            }
+            
+            queue.push({ 
+                type: 'DONE', pi: [...pi], q: m-1, k, shift: m, 
+                desc: `<span class="pi-desc-match">π array calculation complete!</span>`,
+                activeTop: [], activeBottom: []
+            });
+            
+            return queue;
+        }
+
+        function piSetupCanvas() {
+            piP = piPatternInput.value.toUpperCase().replace(/\s/g, '');
+            if(!piP) piP = "AABA";
+            piPatternInput.value = piP;
+
+            piCanvas.innerHTML = `
+                <div class="pi-string-row" id="piRowTop">
+                    <div class="pi-row-label">Suffix String<br>(ends at q)</div>
+                </div>
+                <div class="pi-pattern-row" id="piRowBottom">
+                    <div class="pi-row-label" style="color: #ea580c;">Prefix String<br>(tests k)</div>
+                </div>
+                <div class="pi-array-row" id="piRowPi">
+                    <div class="pi-row-label" style="color: #3b82f6;">π Array<br>(Length)</div>
+                </div>
+            `;
+
+            const rowTop = document.getElementById('piRowTop');
+            const rowBottom = document.getElementById('piRowBottom');
+            const rowPi = document.getElementById('piRowPi');
+
+            for (let i = 0; i < piP.length; i++) {
+                let tBox = document.createElement('div');
+                tBox.className = 'pi-char-box inactive';
+                tBox.id = `pi-t-${i}`;
+                tBox.innerText = piP[i];
+                tBox.setAttribute('data-index', i);
+                rowTop.appendChild(tBox);
+
+                let bBox = document.createElement('div');
+                bBox.className = 'pi-char-box inactive';
+                bBox.id = `pi-b-${i}`;
+                bBox.innerText = piP[i];
+                bBox.setAttribute('data-index', i);
+                rowBottom.appendChild(bBox);
+
+                let pBox = document.createElement('div');
+                pBox.className = 'pi-box';
+                pBox.id = `pi-arr-${i}`;
+                pBox.innerText = '?';
+                pBox.setAttribute('data-index', i);
+                rowPi.appendChild(pBox);
+            }
+            
+            rowBottom.style.transform = `translateX(0px)`;
+            piWorkspace.scrollLeft = 0;
+        }
+
+        function piComputeAndRenderState(index) {
+            if (index < 0 || index >= piAnimationQueue.length) return;
+            const step = piAnimationQueue[index];
+
+            document.querySelectorAll('.pi-char-box, .pi-box').forEach(el => {
+                el.classList.remove('comparing', 'match', 'mismatch', 'prefix-match', 'active-pi', 'pi-pointer-q', 'pi-pointer-k', 'inactive', 'calculated');
+                if (el.classList.contains('pi-char-box')) el.classList.add('inactive'); 
+            });
+
+            for (let i = 0; i < piP.length; i++) {
+                const piBox = document.getElementById(`pi-arr-${i}`);
+                if (piBox) {
+                    piBox.innerText = step.pi[i];
+                    if (step.pi[i] !== '?') piBox.classList.add('calculated');
+                }
+                if (i <= step.q) {
+                    const tBox = document.getElementById(`pi-t-${i}`);
+                    if (tBox) tBox.classList.remove('inactive');
+                }
+            }
+
+            const rowBottom = document.getElementById('piRowBottom');
+            if (rowBottom) rowBottom.style.transform = `translateX(${step.shift * PI_BOX_WIDTH}px)`;
+
+            for(let i=0; i < piP.length; i++) {
+                if (i <= step.k || (step.type === 'SET_PI' && i <= step.k)) {
+                   const bBox = document.getElementById(`pi-b-${i}`);
+                   if (bBox) bBox.classList.remove('inactive'); 
+                }
+            }
+
+            if (step.k > 0 && step.type !== 'INIT' && step.type !== 'DONE') {
+                let validPrefixK = step.k;
+                if (step.type === 'SET_PI' && step.desc.includes('Increment')) validPrefixK = step.k - 1; 
+                
+                for(let i = 0; i < validPrefixK; i++) {
+                    const topIdx = step.q - step.k + i;
+                    const botIdx = i;
+                    const elT = document.getElementById(`pi-t-${topIdx}`);
+                    const elB = document.getElementById(`pi-b-${botIdx}`);
+                    if(elT) elT.classList.add('prefix-match');
+                    if(elB) elB.classList.add('prefix-match');
+                }
+            }
+
+            if (step.type !== 'INIT' && step.type !== 'DONE') {
+                const tTarget = document.getElementById(`pi-t-${step.q}`);
+                let bTarget = document.getElementById(`pi-b-${step.type === 'SET_PI' && step.desc.includes('Increment') ? step.k - 1 : step.k}`);
+                if(!bTarget && step.type === 'SET_PI') bTarget = document.getElementById(`pi-b-${step.k}`); 
+
+                if (tTarget) tTarget.classList.add('pi-pointer-q');
+                if (bTarget) bTarget.classList.add('pi-pointer-k');
+
+                if (step.comparing) {
+                    if (tTarget) tTarget.classList.add('comparing');
+                    if (bTarget) bTarget.classList.add('comparing');
+                } else if (step.match) {
+                    if (tTarget) tTarget.classList.add('match');
+                    if (bTarget) bTarget.classList.add('match');
+                } else if (step.mismatch) {
+                    if (tTarget) tTarget.classList.add('mismatch');
+                    if (bTarget) bTarget.classList.add('mismatch');
+                }
+            }
+
+            if (step.targetPi !== undefined) {
+                const piTarget = document.getElementById(`pi-arr-${step.targetPi}`);
+                if (piTarget) piTarget.classList.add('active-pi');
+            }
+
+            piStatQ.innerText = step.q;
+            piStatK.innerText = step.type === 'INIT' ? '-' : step.k;
+            piStatShift.innerText = step.shift;
+            
+            let pik1 = '-';
+            if (step.type === 'FALLBACK' || (step.k > 0 && step.type !== 'INIT' && step.type !== 'SET_PI')) {
+                pik1 = step.pi[step.k - 1] !== '?' ? step.pi[step.k - 1] : '-';
+            }
+            piStatPiK.innerText = pik1;
+
+            piInfoDesc.innerHTML = step.desc;
+
+            const targetX = (step.shift + step.k) * PI_BOX_WIDTH;
+            const viewportHalf = piWorkspace.clientWidth / 2;
+            if (targetX > viewportHalf) {
+                piWorkspace.scrollLeft = targetX - viewportHalf + 100;
+            } else {
+                piWorkspace.scrollLeft = 0;
+            }
+        }
+
+        // --- PI PLAYBACK ---
+
+        function piTogglePlay() {
+            piIsPlaying = !piIsPlaying;
+            piBtnPlayPause.innerText = piIsPlaying ? "Pause" : "Play";
+            if (piIsPlaying) {
+                if (piCurrentStepIndex >= piAnimationQueue.length - 1) piCurrentStepIndex = -1;
+                piPlayLoop();
+            } else {
+                clearTimeout(piPlayTimeout);
+            }
+        }
+
+        function piStepForward() {
+            piIsPlaying = false;
+            piBtnPlayPause.innerText = "Play";
+            clearTimeout(piPlayTimeout);
+            if (piCurrentStepIndex < piAnimationQueue.length - 1) {
+                piCurrentStepIndex++;
+                piComputeAndRenderState(piCurrentStepIndex);
+            }
+        }
+
+        function piStepBackward() {
+            piIsPlaying = false;
+            piBtnPlayPause.innerText = "Play";
+            clearTimeout(piPlayTimeout);
+            if (piCurrentStepIndex > 0) {
+                piCurrentStepIndex--;
+                piComputeAndRenderState(piCurrentStepIndex);
+            }
+        }
+
+        function piPlayLoop() {
+            if (!piIsPlaying) return;
+            
+            if (piCurrentStepIndex < piAnimationQueue.length - 1) {
+                piCurrentStepIndex++;
+                const step = piAnimationQueue[piCurrentStepIndex];
+                piComputeAndRenderState(piCurrentStepIndex);
+                
+                const speed = piSpeedSlider.value;
+                let delay = 1400 - (speed * 120); 
+                
+                if(step.type === 'MATCH' || step.type === 'MISMATCH') delay *= 1.2;
+                if(step.type === 'SET_PI' || step.type === 'FALLBACK') delay *= 1.5;
+
+                piPlayTimeout = setTimeout(piPlayLoop, delay);
+            } else {
+                piIsPlaying = false;
+                piBtnPlayPause.innerText = "Play";
+            }
+        }
+
+        piBtnBuild.addEventListener('click', () => {
+            piSetupCanvas();
+            piAnimationQueue = generateKmpPiQueue(piP);
+            
+            piPatternInput.disabled = true;
+            piBtnBuild.disabled = true;
+            piPlaybackControls.style.display = 'flex';
+            piDivPlayback.style.display = 'block';
+            
+            piCurrentStepIndex = -1;
+            piIsPlaying = true;
+            piBtnPlayPause.innerText = "Pause";
+            piPlayLoop();
+        });
+
+        piBtnReset.addEventListener('click', () => {
+            clearTimeout(piPlayTimeout);
+            piIsPlaying = false;
+            piCurrentStepIndex = -1;
+            
+            piPatternInput.disabled = false;
+            piBtnBuild.disabled = false;
+            piPlaybackControls.style.display = 'none';
+            piDivPlayback.style.display = 'none';
+            
+            piStatQ.innerText = '-';
+            piStatK.innerText = '-';
+            piStatShift.innerText = '-';
+            piStatPiK.innerText = '-';
+            piInfoDesc.innerHTML = 'Enter a pattern and click "Build π Array" to start.';
+            
+            piSetupCanvas();
+        });
+
+        piBtnPrev.addEventListener('click', piStepBackward);
+        piBtnNext.addEventListener('click', piStepForward);
+        piBtnPlayPause.addEventListener('click', piTogglePlay);
+
+        // Init blank state for PI builder
+        piSetupCanvas();
+
+    </script>
+</body>
+</html>
