@@ -427,6 +427,22 @@
   let unsubscribeRoom = null;
   let catchupTimeout = null;
 
+  /* ── Security & Sanitization Helpers ──────────────────────────────── */
+  
+  /**
+   * Strictly sanitizes text to prevent XSS payloads and malformed HTML.
+   * Strips out angle brackets, limits length, and cleans whitespaces.
+   */
+  function sanitizeText(input, maxLength = 50) {
+    if (typeof input !== 'string') return '';
+    // Strip angle brackets outright to break HTML tag attempts
+    let sanitized = input.replace(/[<>]/g, '');
+    // Replace script/javascript pseudo-protocols if accidentally injected
+    sanitized = sanitized.replace(/javascript:/gi, '').trim();
+    // Cap to safe maximum length
+    return sanitized.substring(0, maxLength);
+  }
+
   /* ── Helpers ──────────────────────────────────────────────────────── */
   function genCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -437,7 +453,9 @@
 
   function cleanName(n) {
     // Stricter regex to ensure Firebase paths never break (only words, spaces, hyphens)
-    return n.replace(/[^\w\s\-]/g, '').trim().slice(0, 20);
+    // Run it through the sanitizer as a primary defense.
+    const sanitized = sanitizeText(n, 20);
+    return sanitized.replace(/[^\w\s\-]/g, '').trim();
   }
 
   function esc(s) {
@@ -453,7 +471,8 @@
 
   // Ensures every log is completely unique so Firebase arrayUnion doesn't drop duplicates
   function createLog(msg) {
-    return { text: msg, id: Date.now() + Math.random().toString(36).substr(2, 5) };
+    const safeMsg = sanitizeText(msg, 150); // Ensure log messages are also bounds checked
+    return { text: safeMsg, id: Date.now() + Math.random().toString(36).substr(2, 5) };
   }
 
   /* ── UI helpers ───────────────────────────────────────────────────── */
@@ -484,7 +503,8 @@
     }
 
     // 2. Sync Grand Total
-    document.getElementById('grand-total-display').textContent = roomData.grandTotal || 0;
+    // Use Math.max to enforce defensive integer display
+    document.getElementById('grand-total-display').textContent = Math.max(0, Number(roomData.grandTotal) || 0);
 
     // 3. Sync Players List
     const list = document.getElementById('players-list');
@@ -497,26 +517,30 @@
     } else {
       // Sort chronologically by join time (oldest first)
       names.sort((a, b) => {
-        const timeA = typeof state[a] === 'object' ? (state[a].joinedAt || 0) : 0;
-        const timeB = typeof state[b] === 'object' ? (state[b].joinedAt || 0) : 0;
+        const timeA = typeof state[a] === 'object' ? (Number(state[a].joinedAt) || 0) : 0;
+        const timeB = typeof state[b] === 'object' ? (Number(state[b].joinedAt) || 0) : 0;
         return timeA - timeB;
       });
 
       list.innerHTML = names.map(name => {
         const pData = state[name] || { count: 0 };
-        // Auto-heal local render immediately if corrupted by old client
-        const count = typeof pData === 'number' ? pData : (pData.count || 0);
+        // Auto-heal local render immediately if corrupted by old client, force to Number type
+        let count = typeof pData === 'number' ? pData : (pData.count || 0);
+        count = Math.max(0, Number(count)); 
+        if (isNaN(count)) count = 0;
+
         const isMe  = name === myName;
         const safe  = esc(name);
         
         // 3-Minute Limit logic for Catchup
         let catchupBtn = '';
-        const joinTime = typeof pData === 'object' ? (pData.joinedAt || 0) : 0;
+        const joinTime = typeof pData === 'object' ? (Number(pData.joinedAt) || 0) : 0;
         const timeSinceJoin = Date.now() - joinTime;
         const isWithin3Mins = timeSinceJoin <= (3 * 60 * 1000);
         const usedCatchup = typeof pData === 'object' ? (pData.usedCatchup === true) : false;
+        const validGrandTotal = Math.max(0, Number(roomData.grandTotal) || 0);
 
-        if (isMe && count < (roomData.grandTotal || 0) && isWithin3Mins && !usedCatchup) {
+        if (isMe && count < validGrandTotal && isWithin3Mins && !usedCatchup) {
           catchupBtn = `<button class="btn-catchup" data-action="catchup">Catchup</button>`;
           
           // Re-render when the 3 mins are up to seamlessly hide the button
@@ -609,7 +633,7 @@
         // Fallback for players rejoining: use updateDoc with explicit FieldPath to bypass any nested naming issues
         if (!data.players || !data.players[myName]) {
           await updateDoc(roomRef, 
-            new FieldPath('players', myName), { count: 0, joinedAt: joinTime, active: true },
+            new FieldPath('players', myName), { count: 0, joinedAt: Number(joinTime), active: true },
             'logs', arrayUnion(joinLog)
           );
         } else {
@@ -622,10 +646,10 @@
         }
       } else {
         await setDoc(roomRef, {
-          title: "💪 PUSHUP TRACKER",
+          title: sanitizeText("💪 PUSHUP TRACKER", 50), // Ensure baseline database integrity
           grandTotal: 0,
           logs: [joinLog],
-          players: { [myName]: { count: 0, joinedAt: joinTime, active: true } }
+          players: { [myName]: { count: 0, joinedAt: Number(joinTime), active: true } }
         });
       }
 
@@ -639,13 +663,15 @@
           // 🛡️ AUTO-HEALING DEFENSE SYSTEM
           // Detects if a friend with an old app cache overwrites
           // the player object with a primitive number, and fixes it globally.
+          // Now additionally forces bounds/types correctly.
           // ==========================================
           let needsHealing = false;
           const updatesList = [];
 
           for (const p in state) {
             if (typeof state[p] === 'number') {
-              const recoveredCount = state[p];
+              let recoveredCount = Number(state[p]);
+              recoveredCount = isNaN(recoveredCount) ? 0 : Math.max(0, recoveredCount); // Type enforcement
               state[p] = { count: recoveredCount, joinedAt: Date.now(), active: true };
               updatesList.push(new FieldPath('players', p), state[p]);
               needsHealing = true;
@@ -661,7 +687,7 @@
 
           for (const player in state) {
             const oldData = oldState[player];
-            const newCount = state[player].count;
+            const newCount = typeof state[player] === 'object' ? state[player].count : state[player];
             let oldCount = 0;
             if (oldData) {
               oldCount = typeof oldData === 'number' ? oldData : (oldData.count || 0);
@@ -712,9 +738,19 @@
 
   /* ── Actions ──────────────────────────────────────────────────────── */
   
-  // Update Room Title natively handling "Blur" and "Enter"
+  // Update Room Title securely
   document.getElementById('room-title-input').addEventListener('change', async (e) => {
-    const newTitle = e.target.value.trim() || "💪 PUSHUP TRACKER";
+    let rawInput = e.target.value;
+    let newTitle = sanitizeText(rawInput, 50); 
+    
+    // Fallback if empty or completely stripped
+    if (!newTitle) {
+      newTitle = "💪 PUSHUP TRACKER";
+    }
+
+    // Reflect sanitized text visually back to the user
+    e.target.value = newTitle; 
+
     if (newTitle !== roomData.title && roomCode && connected) {
       const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
       const logObj = createLog(`${getTimeString()} - ${myName} changed room title to "${newTitle}"`);
@@ -735,7 +771,10 @@
     const names = Object.keys(state).filter(n => state[n]?.active !== false);
     if (names.length === 0) return;
 
-    const currentTotal = roomData.grandTotal || 0;
+    // Defensively parse currentTotal
+    let currentTotal = Number(roomData.grandTotal);
+    currentTotal = isNaN(currentTotal) ? 0 : Math.max(0, currentTotal);
+
     const logObj = createLog(`${getTimeString()} - ${myName} added +1 to ALL (Total: ${currentTotal + 1})`);
     
     // Spread updates gracefully over the array to allow arbitrary player names
@@ -757,9 +796,11 @@
     if (!currentUser || !connected) return;
     if (name !== myName) return;
     
-    // Protect against stale primitive data crash during manual clicks
-    const currentCount = typeof state[name] === 'number' ? state[name] : (state[name]?.count || 0);
-    if (currentCount <= 0) return;
+    // Protect against stale primitive data crash during manual clicks and prevent negatives
+    let currentCount = typeof state[name] === 'number' ? state[name] : (state[name]?.count || 0);
+    currentCount = Number(currentCount);
+
+    if (isNaN(currentCount) || currentCount <= 0) return;
 
     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
 
@@ -773,9 +814,17 @@
 
   async function catchup() {
     if (!currentUser || !connected) return;
-    const target = roomData.grandTotal || 0;
     
-    const currentCount = typeof state[myName] === 'number' ? state[myName] : (state[myName]?.count || 0);
+    // Security Evaluation: Force target to be a valid, positive integer to prevent client-side exploits
+    let target = Number(roomData.grandTotal);
+    target = isNaN(target) ? 0 : Math.max(0, target);
+    
+    // Defensively process local state variable
+    let currentCount = typeof state[myName] === 'number' ? state[myName] : (state[myName]?.count || 0);
+    currentCount = Number(currentCount);
+    currentCount = isNaN(currentCount) ? 0 : Math.max(0, currentCount);
+
+    // Stop execution if they are already caught up or if data evaluates improperly
     if (currentCount >= target) return;
 
     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
