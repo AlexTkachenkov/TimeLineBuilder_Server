@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  
+  <!-- Cache-busting meta tags to force browsers to fetch the latest code -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <title>💪 Pushup Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #0a0a0a;
+      --surface: #141414;
+      --card:    #1c1c1c;
+      --border:  #2a2a2a;
+      --red:     #ff3b3b;
+      --green:   #00e676;
+      --text:    #f0f0f0;
+      --muted:   #555;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      padding: 1rem;
+      background-image: radial-gradient(circle at 80% 10%, rgba(255,59,59,0.06) 0%, transparent 50%);
+    }
+    .wrap { max-width: 440px; margin: 0 auto; }
+
+    /* ── Header ── */
+    .hdr { padding: 1.5rem 0 0.5rem; display: flex; align-items: flex-end; gap: 0.5rem; }
+    .hdr-title { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; letter-spacing: 0.04em; line-height: 1; }
+    .hdr-sub { color: var(--muted); font-size: 0.8rem; line-height: 1.4; padding-bottom: 0.3rem; }
+
+    /* ── Editable Title ── */
+    .hdr-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3rem;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      padding: 0;
+      margin: 0;
+      outline: none;
+      border-bottom: 2px solid transparent;
+      transition: border-color 0.2s;
+      text-transform: uppercase;
+    }
+    .hdr-input:focus {
+      border-bottom: 2px dashed var(--muted);
+    }
+
+    /* ── Setup ── */
+    .setup-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.4rem;
+      margin-top: 1.25rem;
+    }
+    .setup-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .setup-or {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin: 1.1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .setup-or::before, .setup-or::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ── Inputs ── */
+    input {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 0.8rem 1rem;
+      font-size: 1rem;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: var(--red); }
+    input::placeholder { color: var(--muted); }
+    .row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+
+    /* ── Buttons ── */
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 0.8rem 1.1rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: opacity 0.1s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { opacity: 0.75; transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.78rem; padding: 0.4rem 0.75rem; }
+    .btn-full { width: 100%; margin-top: 0.75rem; }
+
+    .btn-shout {
+      width: 100%;
+      padding: 1.15rem;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.08em;
+      border-radius: 16px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 28px rgba(255,59,59,0.35);
+      transition: transform 0.08s, box-shadow 0.08s;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+    }
+    .btn-shout:active { transform: scale(0.96); box-shadow: 0 2px 10px rgba(255,59,59,0.2); }
+
+    /* ── Room bar & Grand Total ── */
+    .room-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.7rem 1rem;
+      margin-bottom: 1.1rem;
+    }
+    .room-label { font-size: 0.72rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+    .room-code {
+      flex: 1;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.2em;
+      color: var(--red);
+    }
+    .grand-total {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.8rem;
+      color: var(--red);
+      line-height: 1;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Status ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.pulse {
+      background: var(--green);
+      animation: pulse 1.4s infinite;
+    }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,230,118,0.5); } 50% { box-shadow: 0 0 0 5px rgba(0,230,118,0); } }
+
+    /* ── Player list ── */
+    .players { display: flex; flex-direction: column; gap: 0.65rem; margin-bottom: 1.25rem; }
+    .player {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.9rem 1rem;
+      transition: border-color 0.2s;
+    }
+    .player.is-me { border-color: rgba(255,59,59,0.35); }
+    .player-info { flex: 1; min-width: 0; }
+    .player-name { font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .player-you {
+      display: inline-block;
+      font-size: 0.58rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--red);
+      background: rgba(255,59,59,0.12);
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-top: 2px;
+    }
+    .player-count {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.4rem;
+      line-height: 1;
+      min-width: 3rem;
+      text-align: center;
+      color: var(--red);
+      transition: transform 0.12s;
+    }
+    .player-count.zero { color: var(--green); }
+    .player-count.bump { transform: scale(1.3); }
+
+    .btn-minus {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 1.6rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.1s, transform 0.08s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .btn-minus:not(:disabled):active { background: #2a2a2a; transform: scale(0.9); }
+    .btn-minus:disabled { opacity: 0.2; cursor: not-allowed; }
+
+    /* ── New Feature Buttons ── */
+    .btn-catchup {
+      background: transparent;
+      color: var(--green);
+      border: 1px solid var(--green);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.4rem 0.6rem;
+      border-radius: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.1s;
+    }
+    .btn-catchup:active {
+      transform: scale(0.95);
+      background: rgba(0, 230, 118, 0.1);
+    }
+    
+    /* ── Logs ── */
+    .log-container {
+      max-height: 140px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding-right: 0.5rem;
+    }
+    .log-container::-webkit-scrollbar { width: 4px; }
+    .log-container::-webkit-scrollbar-track { background: transparent; }
+    .log-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    
+    .log-entry {
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 0.4rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; font-size: 0.875rem; line-height: 1.6; }
+
+    /* ── Footer ── */
+    .footer { text-align: center; padding-bottom: 1.5rem; }
+    .footer a { color: var(--muted); font-size: 0.78rem; cursor: pointer; text-decoration: underline; }
+
+    /* ── Screen toggle ── */
+    #game-screen { display: none; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ════ SETUP SCREEN ════ -->
+  <div id="setup-screen">
+    <div class="hdr">
+      <span class="hdr-title">💪 PUSHUP TRACKER</span>
+    </div>
+    <p style="color:var(--muted);font-size:0.82rem;margin-top:0.4rem;">The professor said it again, didn't they?</p>
+
+    <div class="setup-card">
+      <div class="setup-label">✦ Create a new room</div>
+      <input id="create-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="btn btn-red btn-full" id="create-btn" disabled>Connecting...</button>
+    </div>
+
+    <div class="setup-or">or join existing</div>
+
+    <div class="setup-card">
+      <div class="setup-label">🔗 Join a room</div>
+      <input id="join-name" type="text" placeholder="Your name" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false">
+      <div class="row">
+        <input id="join-code" type="text" placeholder="Room code" maxlength="6"
+               autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+               style="text-transform:uppercase;letter-spacing:0.15em;font-family:'Bebas Neue',sans-serif;font-size:1.1rem">
+        <button class="btn btn-red" id="join-btn" disabled>Join →</button>
+      </div>
+    </div>
+
+    <p style="color:var(--muted);font-size:0.72rem;text-align:center;margin-top:1.25rem;line-height:1.6;">
+      Syncs in real-time via Firebase · Needs internet access
+    </p>
+  </div>
+
+  <!-- ════ GAME SCREEN ════ -->
+  <div id="game-screen">
+    
+    <!-- Editable Title -->
+    <div class="hdr" style="padding-top:0.75rem;">
+      <input type="text" id="room-title-input" class="hdr-input" value="💪 PUSHUP TRACKER" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="status-bar" style="margin-top:0.75rem;">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">Connecting…</span>
+    </div>
+
+    <div class="room-bar">
+      <div style="flex:1; display:flex; align-items:center; gap:0.5rem; overflow:hidden;">
+        <span class="room-label">Room</span>
+        <span class="room-code" id="display-code"></span>
+        <button class="btn btn-ghost" id="copy-btn" style="padding: 0.3rem 0.6rem; font-size: 0.7rem;">Copy</button>
+      </div>
+      <!-- Grand Total Display -->
+      <div style="text-align: right; border-left: 1px solid var(--border); padding-left: 1rem; margin-left: 0.5rem;">
+        <div class="room-label" style="font-size:0.6rem; margin-bottom:0.1rem; text-align:right;">Total</div>
+        <div class="grand-total" id="grand-total-display">0</div>
+      </div>
+    </div>
+
+    <button class="btn-shout" id="add-all-btn">
+      🔔 THEY SAID IT — +1 ALL
+    </button>
+
+    <div class="players" id="players-list">
+      <div class="empty">Waiting for players to join…<br><br>
+        Share the room code with your crew.</div>
+    </div>
+
+    <!-- Audit Log Card -->
+    <div class="setup-card" style="margin-top:0; margin-bottom:1.25rem; padding: 1rem;">
+      <div class="setup-label">Change Log</div>
+      <div class="log-container" id="log-container">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <div class="footer">
+      <a id="leave-btn">Leave room</a>
+    </div>
+  </div>
+
+</div>
+
+<!-- FIREBASE LOGIC -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, increment, arrayUnion, deleteField, FieldPath } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+  // 1. FIREBASE CONFIGURATION
+  let firebaseConfig;
+  try {
+      firebaseConfig = JSON.parse(__firebase_config);
+  } catch (e) {
+      // ⚠️ REPLACE THIS BLOCK WITH YOUR OWN CONFIG WHEN HOSTING EXTERNALLY ⚠️
+      firebaseConfig = {
+        apiKey: "AIzaSyCza8X-TlFesJGuh_2kRfeiUtzFd4JeGsc",
+        authDomain: "pushuptrackerstrawberry.firebaseapp.com",
+        projectId: "pushuptrackerstrawberry",
+        storageBucket: "pushuptrackerstrawberry.firebasestorage.app",
+        messagingSenderId: "732662038484",
+        appId: "1:732662038484:web:74c8b42c4c8fd466d92041",
+        measurementId: "G-G1DR8RJ2Q3"
+      };
+  }
+
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'pushup-tracker-app';
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  let myName   = '';
+  let roomCode = '';
+  let roomData = { title: "💪 PUSHUP TRACKER", grandTotal: 0, logs: [], players: {} };
+  let state    = {};   // Reference to roomData.players
+  let connected = false;
+  let currentUser = null;
+  let unsubscribeRoom = null;
+  let catchupTimeout = null;
+
+  /* ── Security & Sanitization Helpers ──────────────────────────────── */
+  
+  /**
+   * Strictly sanitizes text to prevent XSS payloads and malformed HTML.
+   * Strips out angle brackets, limits length, and cleans whitespaces.
+   */
+  function sanitizeText(input, maxLength = 50) {
+    if (typeof input !== 'string') return '';
+    // Strip angle brackets outright to break HTML tag attempts
+    let sanitized = input.replace(/[<>]/g, '');
+    // Replace script/javascript pseudo-protocols if accidentally injected
+    sanitized = sanitized.replace(/javascript:/gi, '').trim();
+    // Cap to safe maximum length
+    return sanitized.substring(0, maxLength);
+  }
+
+  /* ── Helpers ──────────────────────────────────────────────────────── */
+  function genCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let c = '';
+    for (let i = 0; i < 5; i++) c += chars[Math.floor(Math.random() * chars.length)];
+    return c;
+  }
+
+  function cleanName(n) {
+    // Stricter regex to ensure Firebase paths never break (only words, spaces, hyphens)
+    // Run it through the sanitizer as a primary defense.
+    const sanitized = sanitizeText(n, 20);
+    return sanitized.replace(/[^\w\s\-]/g, '').trim();
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function getTimeString() {
+    const d = new Date();
+    return d.getHours().toString().padStart(2, '0') + ':' + 
+           d.getMinutes().toString().padStart(2, '0') + ':' + 
+           d.getSeconds().toString().padStart(2, '0');
+  }
+
+  // Ensures every log is completely unique so Firebase arrayUnion doesn't drop duplicates
+  function createLog(msg) {
+    const safeMsg = sanitizeText(msg, 150); // Ensure log messages are also bounds checked
+    return { text: safeMsg, id: Date.now() + Math.random().toString(36).substr(2, 5) };
+  }
+
+  /* ── UI helpers ───────────────────────────────────────────────────── */
+  function show(id)  { document.getElementById(id).style.display = 'block'; }
+  function hide(id)  { document.getElementById(id).style.display = 'none'; }
+
+  function setStatus(live, text) {
+    const dot  = document.getElementById('status-dot');
+    const span = document.getElementById('status-text');
+    dot.className  = 'dot' + (live ? ' pulse' : '');
+    span.textContent = text;
+  }
+
+  function bumpCount(name) {
+    const safeSelector = CSS.escape(name);
+    const el = document.querySelector(`[data-name="${safeSelector}"] .player-count`);
+    if (!el) return;
+    el.classList.add('bump');
+    setTimeout(() => el.classList.remove('bump'), 150);
+  }
+
+  /* ── Render ───────────────────────────────────────────────────────── */
+  function render() {
+    // 1. Sync Title
+    const titleInput = document.getElementById('room-title-input');
+    if (document.activeElement !== titleInput && roomData.title) {
+      titleInput.value = roomData.title;
+    }
+
+    // 2. Sync Grand Total
+    // Use Math.max to enforce defensive integer display
+    document.getElementById('grand-total-display').textContent = Math.max(0, Number(roomData.grandTotal) || 0);
+
+    // 3. Sync Players List
+    const list = document.getElementById('players-list');
+    
+    // Filter out inactive players (those who left the room)
+    const names = Object.keys(state).filter(name => state[name]?.active !== false);
+
+    if (names.length === 0) {
+      list.innerHTML = '<div class="empty">Waiting for players to join…<br><br>Share the room code with your crew.</div>';
+    } else {
+      // Sort chronologically by join time (oldest first)
+      names.sort((a, b) => {
+        const timeA = typeof state[a] === 'object' ? (Number(state[a].joinedAt) || 0) : 0;
+        const timeB = typeof state[b] === 'object' ? (Number(state[b].joinedAt) || 0) : 0;
+        return timeA - timeB;
+      });
+
+      list.innerHTML = names.map(name => {
+        const pData = state[name] || { count: 0 };
+        // Auto-heal local render immediately if corrupted by old client, force to Number type
+        let count = typeof pData === 'number' ? pData : (pData.count || 0);
+        count = Math.max(0, Number(count)); 
+        if (isNaN(count)) count = 0;
+
+        const isMe  = name === myName;
+        const safe  = esc(name);
+        
+        // 3-Minute Limit logic for Catchup
+        let catchupBtn = '';
+        const joinTime = typeof pData === 'object' ? (Number(pData.joinedAt) || 0) : 0;
+        const timeSinceJoin = Date.now() - joinTime;
+        const isWithin3Mins = timeSinceJoin <= (3 * 60 * 1000);
+        const usedCatchup = typeof pData === 'object' ? (pData.usedCatchup === true) : false;
+        const validGrandTotal = Math.max(0, Number(roomData.grandTotal) || 0);
+
+        if (isMe && count < validGrandTotal && isWithin3Mins && !usedCatchup) {
+          catchupBtn = `<button class="btn-catchup" data-action="catchup">Catchup</button>`;
+          
+          // Re-render when the 3 mins are up to seamlessly hide the button
+          clearTimeout(catchupTimeout);
+          catchupTimeout = setTimeout(() => {
+            if (roomCode) render(); 
+          }, (3 * 60 * 1000) - timeSinceJoin + 100);
+        }
+
+        return `
+          <div class="player ${isMe ? 'is-me' : ''}" data-name="${safe}">
+            <div class="player-info">
+              <div style="display:flex; align-items:center; gap:0.4rem;">
+                <div class="player-name">${safe}</div>
+                ${isMe ? '<div class="player-you">you</div>' : ''}
+              </div>
+            </div>
+            ${catchupBtn}
+            <div class="player-count ${count === 0 ? 'zero' : ''}">${count}</div>
+            <button class="btn-minus" data-action="minus" data-player="${safe}" ${count === 0 ? 'disabled' : ''} style="${!isMe ? 'visibility: hidden;' : ''}">−</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    if (connected) {
+      setStatus(true, 'Live · ' + names.length + ' player' + (names.length !== 1 ? 's' : ''));
+    }
+
+    // 4. Sync Logs
+    const logContainer = document.getElementById('log-container');
+    const logs = roomData.logs || [];
+    
+    if (logs.length === 0) {
+      logContainer.innerHTML = `<div class="empty" style="padding: 0.5rem; font-size: 0.75rem;">No activity yet.</div>`;
+    } else {
+      const displayLogs = logs.slice(-30); // Show up to last 30 logs for performance
+      logContainer.innerHTML = displayLogs.map(l => {
+        const text = typeof l === 'string' ? l : l.text;
+        return `<div class="log-entry">${esc(text)}</div>`;
+      }).join('');
+      // Snap to bottom
+      setTimeout(() => logContainer.scrollTop = logContainer.scrollHeight, 10);
+    }
+  }
+
+  /* ── Authentication & Connection ──────────────────────────────────── */
+  async function initAuth() {
+    try {
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
+      }
+    } catch (e) {
+      console.error("Auth error", e);
+    }
+  }
+
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if (user) {
+      const createBtn = document.getElementById('create-btn');
+      const joinBtn = document.getElementById('join-btn');
+      createBtn.disabled = false;
+      joinBtn.disabled = false;
+      createBtn.textContent = 'Create Room';
+    }
+  });
+
+  initAuth();
+
+  /* ── Firebase Room Logic ──────────────────────────────────────────── */
+  async function enterRoom() {
+    if (!currentUser) return;
+
+    hide('setup-screen');
+    show('game-screen');
+    document.getElementById('display-code').textContent = roomCode;
+    setStatus(false, 'Connecting…');
+
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const joinTime = Date.now();
+    const joinLog = createLog(`${getTimeString()} - ${myName} joined the room`);
+
+    try {
+      const docSnap = await getDoc(roomRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        // Fallback for players rejoining: use updateDoc with explicit FieldPath to bypass any nested naming issues
+        if (!data.players || !data.players[myName]) {
+          await updateDoc(roomRef, 
+            new FieldPath('players', myName), { count: 0, joinedAt: Number(joinTime), active: true },
+            'logs', arrayUnion(joinLog)
+          );
+        } else {
+          // Player exists, reactivate them
+          const rejoinLog = createLog(`${getTimeString()} - ${myName} rejoined the room`);
+          await updateDoc(roomRef, 
+            new FieldPath('players', myName, 'active'), true,
+            'logs', arrayUnion(rejoinLog)
+          );
+        }
+      } else {
+        await setDoc(roomRef, {
+          title: sanitizeText("💪 PUSHUP TRACKER", 50), // Ensure baseline database integrity
+          grandTotal: 0,
+          logs: [joinLog],
+          players: { [myName]: { count: 0, joinedAt: Number(joinTime), active: true } }
+        });
+      }
+
+      unsubscribeRoom = onSnapshot(roomRef, (snapshot) => {
+        if (snapshot.exists()) {
+          roomData = snapshot.data();
+          const oldState = state;
+          state = roomData.players || {};
+
+          // ==========================================
+          // 🛡️ AUTO-HEALING DEFENSE SYSTEM
+          // Detects if a friend with an old app cache overwrites
+          // the player object with a primitive number, and fixes it globally.
+          // Now additionally forces bounds/types correctly.
+          // ==========================================
+          let needsHealing = false;
+          const updatesList = [];
+
+          for (const p in state) {
+            if (typeof state[p] === 'number') {
+              let recoveredCount = Number(state[p]);
+              recoveredCount = isNaN(recoveredCount) ? 0 : Math.max(0, recoveredCount); // Type enforcement
+              state[p] = { count: recoveredCount, joinedAt: Date.now(), active: true };
+              updatesList.push(new FieldPath('players', p), state[p]);
+              needsHealing = true;
+            }
+          }
+
+          if (needsHealing && myName) {
+            updateDoc(roomRef, ...updatesList).catch(console.error);
+          }
+          // ==========================================
+
+          if (!connected) connected = true;
+
+          for (const player in state) {
+            const oldData = oldState[player];
+            const newCount = typeof state[player] === 'object' ? state[player].count : state[player];
+            let oldCount = 0;
+            if (oldData) {
+              oldCount = typeof oldData === 'number' ? oldData : (oldData.count || 0);
+            }
+
+            if (oldData !== undefined && newCount > oldCount) {
+              bumpCount(player);
+            }
+          }
+          render();
+        }
+      }, (error) => {
+        console.error("Snapshot error:", error);
+        setStatus(false, 'Disconnected');
+        connected = false;
+      });
+
+    } catch (err) {
+      console.error("Error joining room:", err);
+      setStatus(false, 'Error joining room');
+    }
+  }
+
+  /* ── Exit Room Handling ── */
+  async function performExitRoutine() {
+    if (!connected || !roomCode || !myName) return;
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const logObj = createLog(`${getTimeString()} - ${myName} left the room`);
+    try {
+      // Mark as inactive instead of deleting to save their score
+      await updateDoc(roomRef, 
+        new FieldPath('players', myName, 'active'), false,
+        'logs', arrayUnion(logObj)
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Handle browser close/refresh
+  window.addEventListener('beforeunload', () => {
+    if (connected && roomCode && myName) {
+      const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+      // Synchronous-ish best effort removal
+      updateDoc(roomRef, new FieldPath('players', myName, 'active'), false);
+    }
+  });
+
+  /* ── Actions ──────────────────────────────────────────────────────── */
+  
+  // Update Room Title securely
+  document.getElementById('room-title-input').addEventListener('change', async (e) => {
+    let rawInput = e.target.value;
+    let newTitle = sanitizeText(rawInput, 50); 
+    
+    // Fallback if empty or completely stripped
+    if (!newTitle) {
+      newTitle = "💪 PUSHUP TRACKER";
+    }
+
+    // Reflect sanitized text visually back to the user
+    e.target.value = newTitle; 
+
+    if (newTitle !== roomData.title && roomCode && connected) {
+      const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+      const logObj = createLog(`${getTimeString()} - ${myName} changed room title to "${newTitle}"`);
+      try {
+        await updateDoc(roomRef, 'title', newTitle, 'logs', arrayUnion(logObj));
+      } catch (err) { console.error(err); }
+    }
+  });
+
+  document.getElementById('room-title-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') e.target.blur(); // Triggers the "change" event above
+  });
+
+  async function addToAll() {
+    if (!currentUser || !connected) return;
+    
+    // Only add pushups to players who are currently in the room
+    const names = Object.keys(state).filter(n => state[n]?.active !== false);
+    if (names.length === 0) return;
+
+    // Defensively parse currentTotal
+    let currentTotal = Number(roomData.grandTotal);
+    currentTotal = isNaN(currentTotal) ? 0 : Math.max(0, currentTotal);
+
+    const logObj = createLog(`${getTimeString()} - ${myName} added +1 to ALL (Total: ${currentTotal + 1})`);
+    
+    // Spread updates gracefully over the array to allow arbitrary player names
+    const updates = ['grandTotal', increment(1), 'logs', arrayUnion(logObj)];
+    names.forEach(name => {
+      updates.push(new FieldPath('players', name, 'count'), increment(1)); 
+    });
+
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    try {
+      await updateDoc(roomRef, ...updates);
+      if (navigator.vibrate) navigator.vibrate(30);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function removeOne(name) {
+    if (!currentUser || !connected) return;
+    if (name !== myName) return;
+    
+    // Protect against stale primitive data crash during manual clicks and prevent negatives
+    let currentCount = typeof state[name] === 'number' ? state[name] : (state[name]?.count || 0);
+    currentCount = Number(currentCount);
+
+    if (isNaN(currentCount) || currentCount <= 0) return;
+
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+
+    try {
+      // Just remove the point, don't spam the log for self-reductions
+      await updateDoc(roomRef, new FieldPath('players', myName, 'count'), increment(-1));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function catchup() {
+    if (!currentUser || !connected) return;
+    
+    // Security Evaluation: Force target to be a valid, positive integer to prevent client-side exploits
+    let target = Number(roomData.grandTotal);
+    target = isNaN(target) ? 0 : Math.max(0, target);
+    
+    // Defensively process local state variable
+    let currentCount = typeof state[myName] === 'number' ? state[myName] : (state[myName]?.count || 0);
+    currentCount = Number(currentCount);
+    currentCount = isNaN(currentCount) ? 0 : Math.max(0, currentCount);
+
+    // Stop execution if they are already caught up or if data evaluates improperly
+    if (currentCount >= target) return;
+
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const logObj = createLog(`${getTimeString()} - ${myName} used catchup (to ${target})`);
+
+    try {
+      await updateDoc(roomRef, 
+        new FieldPath('players', myName, 'count'), target,
+        new FieldPath('players', myName, 'usedCatchup'), true,
+        'logs', arrayUnion(logObj)
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  /* ── Event wiring ─────────────────────────────────────────────────── */
+  document.getElementById('create-btn').addEventListener('click', function () {
+    const n = cleanName(document.getElementById('create-name').value);
+    if (!n) { document.getElementById('create-name').focus(); return; }
+    myName   = n;
+    roomCode = genCode();
+    enterRoom();
+  });
+
+  document.getElementById('join-btn').addEventListener('click', function () {
+    const n    = cleanName(document.getElementById('join-name').value);
+    const code = document.getElementById('join-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!n)    { document.getElementById('join-name').focus(); return; }
+    if (!code || code.length < 4) { document.getElementById('join-code').focus(); return; }
+    myName   = n;
+    roomCode = code;
+    enterRoom();
+  });
+
+  document.getElementById('join-code').addEventListener('input', function () {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+
+  document.getElementById('add-all-btn').addEventListener('click', addToAll);
+
+  // Event delegation for all dynamically generated buttons in the player list
+  document.getElementById('players-list').addEventListener('click', function (e) {
+    const btn = e.target.closest('button');
+    if (!btn || btn.disabled) return;
+    
+    const action = btn.dataset.action;
+    const player = btn.dataset.player;
+
+    if (action === 'minus') {
+      removeOne(player);
+    } else if (action === 'catchup') {
+      catchup();
+    }
+  });
+
+  document.getElementById('copy-btn').addEventListener('click', function () {
+    const btn = this;
+    const ta = document.createElement('textarea');
+    ta.value = roomCode;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+  });
+
+  document.getElementById('leave-btn').addEventListener('click', async function () {
+    // Actively delete player entry from the room upon clicking leave
+    await performExitRoutine();
+
+    if (unsubscribeRoom) {
+      unsubscribeRoom();
+      unsubscribeRoom = null;
+    }
+    clearTimeout(catchupTimeout);
+    roomCode = '';
+    roomData = { title: "💪 PUSHUP TRACKER", grandTotal: 0, logs: [], players: {} };
+    state = {};
+    connected = false;
+    show('setup-screen');
+    hide('game-screen');
+  });
+
+  // Enter-key support
+  document.getElementById('create-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('create-btn').click();
+  });
+  document.getElementById('join-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('join-code').focus();
+  });
+  document.getElementById('join-code').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('join-btn').click();
+  });
+</script>
+</body>
+</html>
