@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Match the exact, deeply nested path your app uses
+    match /artifacts/{appId}/public/data/rooms/{roomCode} {
+      
+      // Anyone can look up a room if they have the code
+      allow read: if true;
+      
+      // Enforce schema-on-write during creation or updates
+      allow create, update: if request.auth != null
+        // If title exists, it must be a string under 50 characters
+        && (!('title' in request.resource.data) || (request.resource.data.title is string && request.resource.data.title.size() <= 50))
+        // If grandTotal exists, it must be a number and cannot be negative
+        && (!('grandTotal' in request.resource.data) || (request.resource.data.grandTotal is number && request.resource.data.grandTotal >= 0))
+        // Ensure players remains a map (object)
+        && (!('players' in request.resource.data) || request.resource.data.players is map)
+        // Ensure logs remains a list (array)
+        && (!('logs' in request.resource.data) || request.resource.data.logs is list);
+                   
+      // Explicitly protect rooms from being completely deleted by users
+      allow delete: if false;
+    }
+  }
+}
